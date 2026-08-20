@@ -81,6 +81,7 @@ export async function getAnalyticsSummary(brandId: string): Promise<AnalyticsSum
     .map(([date, v]) => ({ date, reach: v.reach, engagementRate: Number((v.engagementRate / v.count).toFixed(2)) }));
 
   const sorted = [...performance].sort((a, b) => b.engagementRate - a.engagementRate);
+  const { topPerforming, lowPerforming } = splitLeaderboard(sorted);
 
   return {
     totalReach,
@@ -89,9 +90,27 @@ export async function getAnalyticsSummary(brandId: string): Promise<AnalyticsSum
     avgEngagementRate: Number(avgEngagementRate.toFixed(2)),
     publishedCount: performance.length,
     timeSeries,
-    topPerforming: sorted.slice(0, 5),
-    lowPerforming: sorted.slice(-5).reverse(),
+    topPerforming,
+    lowPerforming,
   };
+}
+
+/**
+ * With few published posts, a naive top-5/bottom-5 slice can overlap — the same post (even the
+ * single best performer) showing up in both lists. Cap each list at half the sample so "needs
+ * attention" never includes something that's also flagged as "top performing". Exported for unit
+ * testing independent of the database.
+ */
+export function splitLeaderboard(
+  sortedDescByEngagement: ContentPerformance[]
+): { topPerforming: ContentPerformance[]; lowPerforming: ContentPerformance[] } {
+  const size = sortedDescByEngagement.length === 1 ? 1 : Math.min(5, Math.floor(sortedDescByEngagement.length / 2));
+  const topPerforming = sortedDescByEngagement.slice(0, size);
+  const lowPerforming = sortedDescByEngagement
+    .slice(sortedDescByEngagement.length - size)
+    .reverse()
+    .filter((item) => !topPerforming.some((t) => t.contentId === item.contentId));
+  return { topPerforming, lowPerforming };
 }
 
 export async function getInsights(brandId: string) {
