@@ -5,6 +5,10 @@ import { verifyWebhookAuth, recordInboundWebhookEvent, markWebhookEventProcessed
 import { n8nInboundEnvelopeSchema, generateRequestedPayloadSchema } from "@/lib/validation/webhooks";
 import { N8N_INBOUND_EVENTS } from "@/lib/n8n/events";
 import { generatePost, generateCarousel } from "@/lib/ai/content-generator";
+import { runDuePublishingJobs } from "@/lib/publishing/runner";
+import { ingestExternalMetrics } from "@/lib/analytics/ingest";
+import { generateAnalyticsInsight } from "@/lib/ai/analytics-agent";
+import { z } from "zod";
 import { logger } from "@/lib/observability/logger";
 
 /**
@@ -60,17 +64,26 @@ export const POST = withRouteErrorHandling(async (request: Request) => {
       }
 
       case N8N_INBOUND_EVENTS.PUBLISHING_RUN_SCHEDULED: {
-        const { runDuePublishingJobs } = await import("@/lib/publishing/runner");
         const result = await runDuePublishingJobs();
         await markWebhookEventProcessed(webhookEventId, "PROCESSED");
         return NextResponse.json({ ok: true, data: result });
       }
 
       case N8N_INBOUND_EVENTS.ANALYTICS_METRICS_RECEIVED: {
-        const { ingestExternalMetrics } = await import("@/lib/analytics/ingest");
         const result = await ingestExternalMetrics(payload);
         await markWebhookEventProcessed(webhookEventId, "PROCESSED");
         return NextResponse.json({ ok: true, data: result });
+      }
+
+      case N8N_INBOUND_EVENTS.ANALYTICS_ANALYZE_REQUESTED: {
+        const parsed = z.object({ brandId: z.string().min(1) }).safeParse(payload);
+        if (!parsed.success) throw new ApiError(400, "Invalid analytics.analyze_requested payload");
+        const brand = await prisma.brand.findUnique({ where: { id: parsed.data.brandId } });
+        if (!brand) throw new ApiError(404, "Brand not found");
+
+        const insight = await generateAnalyticsInsight({ brandId: brand.id, organizationId: brand.organizationId });
+        await markWebhookEventProcessed(webhookEventId, "PROCESSED");
+        return NextResponse.json({ ok: true, data: { insightId: insight.id, summary: insight.summary } });
       }
 
       default:

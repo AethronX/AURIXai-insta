@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 interface ActionLike {
   ok: boolean;
   error?: string;
+  summary?: string;
+  message?: string;
 }
 
 export function AsyncActionButton({
@@ -23,7 +25,7 @@ export function AsyncActionButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [succeeded, setSucceeded] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   return (
     <div className="inline-flex flex-col items-start gap-1">
@@ -33,11 +35,11 @@ export function AsyncActionButton({
         disabled={isPending || props.disabled}
         onClick={() => {
           setError(null);
-          setSucceeded(false);
+          setSuccessMessage(null);
           startTransition(async () => {
             const result = await onRun();
             if (result.ok) {
-              setSucceeded(true);
+              setSuccessMessage(result.summary ?? result.message ?? "Done");
               onSuccess?.();
             } else {
               setError(result.error ?? "Something went wrong.");
@@ -49,7 +51,7 @@ export function AsyncActionButton({
         {isPending ? pendingLabel ?? "Working…" : children}
       </Button>
       {error && <span className="max-w-xs text-xs text-danger">{error}</span>}
-      {succeeded && !error && <span className="text-xs text-success">Done</span>}
+      {successMessage && !error && <span className="max-w-xs text-xs text-success">{successMessage}</span>}
     </div>
   );
 }
