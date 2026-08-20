@@ -36,6 +36,11 @@ const envSchema = z.object({
   STORAGE_PUBLIC_URL: z.string().optional().default(""),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+
+  // Quality gate: AI review approval threshold (0-100). Human approval is still always required
+  // to publish — this only controls whether AI review routes content to PENDING_APPROVAL or
+  // NEEDS_EDIT.
+  AI_QUALITY_THRESHOLD: z.coerce.number().min(0).max(100).default(85),
 });
 
 export type Env = z.infer<typeof envSchema>;
