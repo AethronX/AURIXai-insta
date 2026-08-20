@@ -1,0 +1,66 @@
+{
+  "name": "AURIX - Workflow 4 - Performance Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aurix-analytics-updated",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "4d5e6f01-0000-4000-8000-000000000001",
+      "name": "On analytics.updated (from AURIX)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-680, -100]
+    },
+    {
+      "parameters": { "rule": { "interval": [{ "field": "weeks", "weeksInterval": 1 }] } },
+      "id": "4d5e6f01-0000-4000-8000-000000000002",
+      "name": "Weekly fallback schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-680, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AURIX_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AURIX_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { eventType: \"analytics.analyze_requested\", eventId: $execution.id, idempotencyKey: \"analysis:\" + $execution.id, timestamp: $now.toISO(), payload: { brandId: $json.body?.payload?.brandId } } }}",
+        "options": {}
+      },
+      "id": "4d5e6f01-0000-4000-8000-000000000003",
+      "name": "Request AI performance analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "text": "=New AURIX insight: {{ $json.data.summary }}",
+        "otherOptions": {}
+      },
+      "id": "4d5e6f01-0000-4000-8000-000000000004",
+      "name": "Notify operator",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [-240, 0]
+    }
+  ],
+  "connections": {
+    "On analytics.updated (from AURIX)": { "main": [[{ "node": "Request AI performance analysis", "type": "main", "index": 0 }]] },
+    "Weekly fallback schedule": { "main": [[{ "node": "Request AI performance analysis", "type": "main", "index": 0 }]] },
+    "Request AI performance analysis": { "main": [[{ "node": "Notify operator", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

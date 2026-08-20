@@ -1,0 +1,98 @@
+{
+  "name": "AURIX - Workflow 1 - Content Generation Request",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aurix-generate-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1a2b3c01-0000-4000-8000-000000000001",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.objective }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            },
+            {
+              "leftValue": "={{ $json.body.brandId }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a2b3c01-0000-4000-8000-000000000002",
+      "name": "Validate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AURIX_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AURIX_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { eventType: \"content.generate_requested\", eventId: $execution.id, idempotencyKey: \"content-generate:\" + $execution.id, timestamp: $now.toISO(), payload: { brandId: $json.body.brandId, format: $json.body.format || \"POST\", objective: $json.body.objective, contentPillarId: $json.body.contentPillarId } } }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "1a2b3c01-0000-4000-8000-000000000003",
+      "name": "Call AURIX API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, -80]
+    },
+    {
+      "parameters": { "respondWith": "allIncomingItems", "options": {} },
+      "id": "1a2b3c01-0000-4000-8000-000000000004",
+      "name": "Return result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-20, -80]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: \"brandId and objective are required\" } }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "1a2b3c01-0000-4000-8000-000000000005",
+      "name": "Return validation error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-240, 100]
+    }
+  ],
+  "connections": {
+    "Trigger": { "main": [[{ "node": "Validate", "type": "main", "index": 0 }]] },
+    "Validate": {
+      "main": [
+        [{ "node": "Call AURIX API", "type": "main", "index": 0 }],
+        [{ "node": "Return validation error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call AURIX API": { "main": [[{ "node": "Return result", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

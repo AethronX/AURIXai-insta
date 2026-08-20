@@ -1,0 +1,84 @@
+{
+  "name": "AURIX - Error Workflow (attach to Workflows 1-4)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "5e6f7001-0000-4000-8000-000000000001",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isTransient = ($json.execution?.error?.httpCode ?? 0) >= 500 || !$json.execution?.error?.httpCode;\nreturn [{ json: { ...$json, isTransient } }];"
+      },
+      "id": "5e6f7001-0000-4000-8000-000000000002",
+      "name": "Classify error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isTransient }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5e6f7001-0000-4000-8000-000000000003",
+      "name": "Transient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": { "amount": 30, "unit": "seconds" },
+      "id": "5e6f7001-0000-4000-8000-000000000004",
+      "name": "Wait then let caller retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-20, -100]
+    },
+    {
+      "parameters": {
+        "text": "=AURIX workflow failed: {{ $json.workflow?.name }} — {{ $json.execution?.error?.message }}",
+        "otherOptions": {}
+      },
+      "id": "5e6f7001-0000-4000-8000-000000000005",
+      "name": "Notify (Slack/Email)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [-20, 100]
+    },
+    {
+      "parameters": {},
+      "id": "5e6f7001-0000-4000-8000-000000000006",
+      "name": "Mark failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [200, 100]
+    }
+  ],
+  "connections": {
+    "Error Trigger": { "main": [[{ "node": "Classify error", "type": "main", "index": 0 }]] },
+    "Classify error": { "main": [[{ "node": "Transient?", "type": "main", "index": 0 }]] },
+    "Transient?": {
+      "main": [
+        [{ "node": "Wait then let caller retry", "type": "main", "index": 0 }],
+        [{ "node": "Notify (Slack/Email)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify (Slack/Email)": { "main": [[{ "node": "Mark failed", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

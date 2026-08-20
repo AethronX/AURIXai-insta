@@ -9,6 +9,8 @@ import { canTransition } from "@/lib/content/status";
 import { createNextVersion } from "@/lib/content/versions";
 import { recordFeedbackMemory } from "@/lib/brand/memory";
 import { recordAuditEvent } from "@/lib/observability/audit";
+import { emitN8nEvent } from "@/lib/n8n/client";
+import { N8N_EVENTS } from "@/lib/n8n/events";
 import type { ActionResult } from "@/lib/actions/ai-actions";
 
 async function requireContentOwnership(contentId: string) {
@@ -39,6 +41,7 @@ export async function approveContentAction(contentId: string): Promise<ActionRes
       prisma.approvalEvent.create({ data: { contentId, userId: user.id, action: "APPROVE" } }),
     ]);
     await recordAuditEvent({ category: "publishing", action: "content.approved", organizationId: user.organizationId, actorId: user.id, metadata: { contentId } });
+    void emitN8nEvent({ eventType: N8N_EVENTS.CONTENT_APPROVED, organizationId: user.organizationId, payload: { contentId } }).catch(() => {});
     revalidateContent(contentId);
     return { ok: true, contentId };
   } catch (err) {
@@ -139,6 +142,11 @@ export async function scheduleContentAction(contentId: string, input: ScheduleIn
     ]);
 
     await recordAuditEvent({ category: "publishing", action: "content.scheduled", organizationId: user.organizationId, actorId: user.id, metadata: { contentId, scheduledFor, provider } });
+    void emitN8nEvent({
+      eventType: N8N_EVENTS.CONTENT_SCHEDULED,
+      organizationId: user.organizationId,
+      payload: { contentId, scheduledFor: scheduledFor.toISOString(), provider },
+    }).catch(() => {});
     revalidateContent(contentId);
     return { ok: true, contentId };
   } catch (err) {

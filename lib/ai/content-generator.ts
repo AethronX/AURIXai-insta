@@ -7,6 +7,8 @@ import { buildPostSystemPrompt, buildPostUserPrompt, POST_PROMPT_VERSION } from 
 import { buildCarouselSystemPrompt, buildCarouselUserPrompt, CAROUSEL_PROMPT_VERSION } from "@/prompts/carousel/v1";
 import { recordAuditEvent } from "@/lib/observability/audit";
 import { createNextVersion } from "@/lib/content/versions";
+import { emitN8nEvent } from "@/lib/n8n/client";
+import { N8N_EVENTS } from "@/lib/n8n/events";
 import type { ContentFormat } from "@prisma/client";
 
 export interface GeneratePostParams {
@@ -66,6 +68,11 @@ export async function generatePost(params: GeneratePostParams) {
     organizationId: params.organizationId,
     metadata: { brandId: params.brandId, contentId: content.id, aiJobId },
   });
+  void emitN8nEvent({
+    eventType: N8N_EVENTS.CONTENT_CREATED,
+    organizationId: params.organizationId,
+    payload: { contentId: content.id, brandId: params.brandId, format: content.format, title: content.title },
+  }).catch(() => {});
 
   return content;
 }
@@ -121,6 +128,11 @@ export async function generateCarousel(params: GenerateCarouselParams) {
     organizationId: params.organizationId,
     metadata: { brandId: params.brandId, contentId: content.id, aiJobId },
   });
+  void emitN8nEvent({
+    eventType: N8N_EVENTS.CONTENT_CREATED,
+    organizationId: params.organizationId,
+    payload: { contentId: content.id, brandId: params.brandId, format: content.format, title: content.title },
+  }).catch(() => {});
 
   return content;
 }

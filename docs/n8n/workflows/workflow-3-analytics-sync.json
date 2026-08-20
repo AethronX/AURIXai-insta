@@ -1,0 +1,98 @@
+{
+  "name": "AURIX - Workflow 3 - Analytics Sync",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1, "triggerAtHour": 6 }] } },
+      "id": "3c4d5e01-0000-4000-8000-000000000001",
+      "name": "Schedule Trigger (daily)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-900, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.AURIX_BASE_URL }}/api/content?status=PUBLISHED",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "=Bearer {{ $env.AURIX_WEBHOOK_SECRET }}" }]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e01-0000-4000-8000-000000000002",
+      "name": "List published content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": { "fieldToSplitOut": "data", "options": {} },
+      "id": "3c4d5e01-0000-4000-8000-000000000003",
+      "name": "Split items",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.externalPostId }}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "metric", "value": "reach,impressions,saved,likes,comments,shares,profile_visits" }
+          ]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "options": {}
+      },
+      "id": "3c4d5e01-0000-4000-8000-000000000004",
+      "name": "Fetch Instagram insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const byName = {};\nfor (const entry of $json.data ?? []) {\n  byName[entry.name] = entry.values?.[0]?.value ?? 0;\n}\nreturn [{\n  json: {\n    contentId: $('Split items').item.json.id,\n    source: 'instagram_graph',\n    metrics: {\n      likes: byName.likes ?? 0,\n      comments: byName.comments ?? 0,\n      shares: byName.shares ?? 0,\n      saves: byName.saved ?? 0,\n      reach: byName.reach ?? 0,\n      impressions: byName.impressions ?? 0,\n      profileVisits: byName.profile_visits ?? 0,\n      followerDelta: 0\n    }\n  }\n}];"
+      },
+      "id": "3c4d5e01-0000-4000-8000-000000000005",
+      "name": "Normalize metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-20, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AURIX_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AURIX_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { eventType: \"analytics.metrics_received\", eventId: $execution.id + \"-\" + $json.contentId, idempotencyKey: \"analytics:\" + $json.contentId + \":\" + $now.format(\"yyyy-MM-dd\"), timestamp: $now.toISO(), payload: $json } }}",
+        "options": {}
+      },
+      "id": "3c4d5e01-0000-4000-8000-000000000006",
+      "name": "Send to AURIX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 0]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (daily)": { "main": [[{ "node": "List published content", "type": "main", "index": 0 }]] },
+    "List published content": { "main": [[{ "node": "Split items", "type": "main", "index": 0 }]] },
+    "Split items": { "main": [[{ "node": "Fetch Instagram insights", "type": "main", "index": 0 }]] },
+    "Fetch Instagram insights": { "main": [[{ "node": "Normalize metrics", "type": "main", "index": 0 }]] },
+    "Normalize metrics": { "main": [[{ "node": "Send to AURIX", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

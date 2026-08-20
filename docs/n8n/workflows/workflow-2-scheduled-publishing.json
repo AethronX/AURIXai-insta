@@ -1,0 +1,76 @@
+{
+  "name": "AURIX - Workflow 2 - Scheduled Publishing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 10 }] }
+      },
+      "id": "2b3c4d01-0000-4000-8000-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-680, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AURIX_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AURIX_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { eventType: \"publishing.run_scheduled\", eventId: $execution.id, idempotencyKey: \"publishing-run:\" + $now.format(\"yyyy-MM-dd-HH-mm\"), timestamp: $now.toISO(), payload: {} } }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "2b3c4d01-0000-4000-8000-000000000002",
+      "name": "Run due publishing jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.failed }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2b3c4d01-0000-4000-8000-000000000003",
+      "name": "Any failures?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "text": "=AURIX publishing run: {{ $json.data.published }} published, {{ $json.data.retrying }} retrying, {{ $json.data.failed }} FAILED. Check /content for details.",
+        "otherOptions": {}
+      },
+      "id": "2b3c4d01-0000-4000-8000-000000000004",
+      "name": "Notify failures",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [-20, -80]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{ "node": "Run due publishing jobs", "type": "main", "index": 0 }]] },
+    "Run due publishing jobs": { "main": [[{ "node": "Any failures?", "type": "main", "index": 0 }]] },
+    "Any failures?": { "main": [[{ "node": "Notify failures", "type": "main", "index": 0 }], []] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
