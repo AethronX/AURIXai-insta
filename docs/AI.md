@@ -1,0 +1,111 @@
+# AI Configuration & Prompt System
+
+Claude is the primary reasoning/content-intelligence layer, accessed only through the
+`AIProvider` interface (`lib/ai/provider.ts`) — never imported directly by generators, actions, or
+UI code.
+
+## Configuration
+
+Set `ANTHROPIC_API_KEY` to enable generation. See `docs/ENVIRONMENT.md` for model selection
+(`AI_MODEL_STRATEGY`/`AI_MODEL_CONTENT`/`AI_MODEL_FAST`) and the quality gate threshold.
+
+**Without a key, every generator fails with a clear, typed error** (`AINotConfiguredError`,
+surfaced to the UI as "Claude is not configured. Add ANTHROPIC_API_KEY in Settings..."). Nothing
+in this codebase fabricates AI output when the key is missing — the seed script
+(`prisma/seed.ts`) exists precisely so the product can be demoed/tested without one, by writing
+realistic example rows directly rather than pretending to have generated them.
+
+## Cost control
+
+- **Task-based model selection** (`lib/ai/models.ts`): strategy generation and analytics insights
+  (the tasks needing the most reasoning) use `AI_MODEL_STRATEGY`; everyday content generation and
+  quality review use `AI_MODEL_CONTENT`; cheap high-volume tasks (caption rewrite, creative
+  direction) use `AI_MODEL_FAST`.
+- **Selective context, never a database dump.** `buildBrandContext()` (`lib/brand/context.ts`)
+  retrieves only what's needed: the brand profile, up to 6 recent content pillars, the active
+  strategy's summary, and the top ~12 brand-memory entries above the confidence floor — rendered
+  into compact plain text (`renderBrandContext`), not raw JSON.
+- **One repair retry, not infinite retries.** `generateValidatedJSON` (`lib/ai/structured-output.ts`)
+  tries twice at most: once cleanly, once with the validation errors fed back. A third failure is
+  a hard error, not a retry loop that burns tokens silently.
+
+## The structured-output engine
+
+Every generator funnels through the same pipeline:
+
+```
+Claude (generateText)
+   → extractJson()          strips markdown fences, falls back to outermost {...}
+   → schema.safeParse()     Zod validation against lib/validation/ai-schemas.ts
+   → valid?
+       ├── yes → store, mark AIJob SUCCEEDED
+       └── no  → retry once with the validation errors appended to the prompt
+                    → still invalid → mark AIJob FAILED, throw AIGenerationError
+```
+
+This is deliberately prompt-based JSON (strong system-prompt instructions + Zod validation)
+rather than a tool-calling/JSON-schema-forced approach — simpler to reason about, and the repair
+loop means a malformed first response is usually still recoverable. See
+`tests/unit/structured-output.test.ts` for the exact behavior under a fake provider (no live API
+key needed to verify this logic).
+
+## Prompt library
+
+`prompts/` — one directory per task, one file per version:
+
+```
+prompts/
+├── shared.ts        CONTENT_GUARDRAILS (never invent facts, respect content rules, weight
+│                    learned preferences) + jsonOnlyInstruction() — reused by every generator
+├── strategy/v1.ts
+├── content/post.v1.ts
+├── carousel/v1.ts
+├── caption/v1.ts
+├── creative/v1.ts
+├── review/v1.ts
+└── analytics/v1.ts
+```
+
+Every prompt file exports a version string constant (e.g. `CAROUSEL_PROMPT_VERSION =
+"carousel.v1"`), which is stored on the row it produces (`Content.promptVersion`,
+`Strategy.promptVersion`, etc.). To iterate a prompt without losing the ability to explain past
+output: add `prompts/carousel/v2.ts`, switch the generator to import it, bump the version string —
+old content still records which prompt made it.
+
+Every content-generation prompt includes `CONTENT_GUARDRAILS`:
+- Never invent facts/prices/claims not present in the brand context — write a placeholder and list
+  it in `assumptions` instead.
+- Respect "never use / never claim / never discuss" exactly.
+- Weight learned brand-memory preferences above generic best practice.
+- JSON only, no commentary, no markdown fences.
+
+## Quality review and the approval gate
+
+`lib/ai/quality-reviewer.ts` scores content 0-100 across hook/clarity/value/brandFit/audienceFit/
+originality/cta/visualDirection/accuracy/platformFit, and routes status to `PENDING_APPROVAL`
+(score ≥ `AI_QUALITY_THRESHOLD` and the model's own `approved` flag) or `NEEDS_EDIT`.
+
+**This never auto-publishes.** `PENDING_APPROVAL` still requires a human to click Approve
+(`approveContentAction`) before scheduling is even possible — see the `ContentStatus` transition
+table in `docs/DATABASE.md`.
+
+## Self-improvement loop
+
+```
+Content → Published → Analytics → Analysis (AIInsight) → Learning → Strategy Update → Future Content
+```
+
+- `lib/ai/analytics-agent.ts` generates an `AIInsight` from real published-content performance,
+  with confidence explicitly capped for small sample sizes (below ~8 published posts) both in the
+  prompt and as a hard backstop in code.
+- `lib/ai/optimization.ts`'s `applyInsight()` is the **only** path from an insight into brand
+  memory/strategy, and it is always human-triggered (an Apply button on the Analytics page) —
+  nothing calls it automatically. Below a 0.5 confidence floor, it refuses with
+  `InsightConfidenceTooLowError` rather than silently biasing future generation off a weak signal.
+- Rejection/change-request feedback follows the same confidence-reinforcement pattern
+  (`lib/brand/memory.ts`) — a single rejection starts below the prompt-injection floor; only
+  repeated feedback on the same theme becomes a strong enough preference to actually change future
+  generations.
+
+See `tests/integration/optimization.test.ts` and `tests/integration/brand-memory.test.ts` for
+this behavior verified against real Postgres.

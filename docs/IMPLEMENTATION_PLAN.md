@@ -20,11 +20,11 @@ Environment available in this session:
 
 | Area | Decision | Why |
 |---|---|---|
-| Framework | Next.js 15 (App Router), React 19, TypeScript strict | Matches requested stack, server actions + route handlers cover both UI and n8n-facing APIs |
-| Styling | Tailwind CSS v3.4 + small design-token layer | Stable, fast, avoids v4 tooling churn |
+| Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript strict | `create-next-app@latest` resolved to 16 at build time; server actions + route handlers cover both UI and n8n-facing APIs |
+| Styling | Tailwind CSS v4 (CSS-first `@theme`) + small design-token layer | `create-next-app` now defaults to v4; embraced current tooling rather than pinning to v3 |
 | Database | PostgreSQL + Prisma ORM | Requested; strong typing, migration story |
-| Auth | Auth.js (NextAuth v5) Credentials provider, bcrypt, DB sessions | Self-hosted, no external SaaS dependency, org-scoped from day one |
-| AI | `AIProvider` interface; `ClaudeProvider` (Anthropic SDK) as the only implementation initially | Swappable, testable with `MockAIProvider` |
+| Auth | Custom cookie-session auth (bcrypt password hashing, DB-backed sessions, `lib/security/auth.ts`) | Self-hosted, no external SaaS dependency, org-scoped from day one, full control without an extra framework dependency |
+| AI | `AIProvider` interface; `ClaudeProvider` (Anthropic SDK) as the only implementation; validated with a fake provider in `tests/unit/structured-output.test.ts` | Swappable, testable without live credentials |
 | Images | `ImageProvider` interface; mock provider now, provider slot for a real API (e.g. Anthropic-compatible image gen / third-party) later | No credentials available now; never fake success silently |
 | Social publishing | `SocialPlatformProvider` interface; `InstagramGraphProvider` (Meta Graph API) + `MockInstagramProvider` | Instagram first, future platforms slot in cleanly |
 | Automation | n8n calls into the app via signed webhooks; app calls out to n8n via a thin `N8nClient` | Business logic stays in the app and is unit-testable, not buried in n8n |
@@ -59,3 +59,13 @@ Every step of the 24-step flow in the spec is implemented against real DB-backed
 external credential (Claude API key, Instagram token, n8n instance) is absent in this dev environment,
 the corresponding provider runs in `MOCK_MODE` and is clearly labeled as such in the UI and in the
 final report — never presented as a live integration.
+
+## Outcome
+
+All 10 phases shipped. Final state: 30 Vitest tests (unit + integration against real local
+Postgres) and 13 Playwright e2e tests, all green; `tsc --noEmit`, `eslint`, and `next build` all
+clean. Two real bugs were found and fixed by actually running the app rather than by inspection
+alone — a Server-Component-to-Client-Component prop violation on the Analytics page, and a button
+`type` race in the onboarding wizard that could submit the form one step early — see
+`docs/TESTING.md` for how each was caught. See the final delivery message for the full
+implemented/tested/requires-credential breakdown.
