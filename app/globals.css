@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --surface: #ffffff;
+  --surface-hover: #f4f4f5;
+  --foreground: #18181b;
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-foreground: #ffffff;
+  --brand-soft: #eef2ff;
+
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --info: #0284c7;
+  --info-soft: #f0f9ff;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --surface: #131316;
+    --surface-hover: #1c1c20;
+    --foreground: #f4f4f5;
+    --muted: #a1a1aa;
+    --muted-foreground: #71717a;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+
+    --brand: #6366f1;
+    --brand-hover: #818cf8;
+    --brand-foreground: #ffffff;
+    --brand-soft: #1e1b4b;
+
+    --success: #22c55e;
+    --success-soft: #052e16;
+    --warning: #f59e0b;
+    --warning-soft: #451a03;
+    --danger: #f87171;
+    --danger-soft: #450a0a;
+    --info: #38bdf8;
+    --info-soft: #082f49;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+::selection {
+  background: var(--brand-soft);
+}

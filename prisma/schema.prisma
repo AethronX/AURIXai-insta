@@ -1,0 +1,760 @@
+// AURIX Social AI — database schema
+//
+// Entity shape follows Organization -> Brand -> {Content, Calendar, Analytics, Integration}
+// so multi-tenancy can be turned on later without a rewrite, even though v1 only ever
+// shows the operator a single organization/brand.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tenancy, auth
+// ────────────────────────────────────────────────────────────────────────────
+
+enum OrgPlan {
+  FREE
+  PRO
+  AGENCY
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      OrgPlan  @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  brands        Brand[]
+  webhookEvents WebhookEvent[]
+  auditEvents   AuditEvent[]
+  aiJobs        AIJob[]
+
+  @@map("organizations")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships    Membership[]
+  sessions       Session[]
+  approvalEvents ApprovalEvent[]
+
+  @@map("users")
+}
+
+model Membership {
+  id             String         @id @default(cuid())
+  role           MembershipRole @default(OWNER)
+  createdAt      DateTime       @default(now())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Brand intelligence
+// ────────────────────────────────────────────────────────────────────────────
+
+model Brand {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  industry    String?
+  description String?
+  website     String?
+  instagram   String?
+  location    String?
+
+  products String[]
+  services String[]
+
+  targetMarket String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audience        BrandAudience?
+  voice           BrandVoice?
+  visualIdentity  BrandVisualIdentity?
+  contentRules    BrandContentRules?
+  memoryEntries   BrandMemoryEntry[]
+  strategies      Strategy[]
+  contentPillars  ContentPillar[]
+  campaigns       Campaign[]
+  calendarItems   CalendarItem[]
+  contents        Content[]
+  integrations    Integration[]
+  analyticsMetrics AnalyticsMetric[]
+  aiInsights      AIInsight[]
+  aiJobs          AIJob[]
+  publishingJobs  PublishingJob[]
+
+  onboardingCompletedAt DateTime?
+  isSeedData            Boolean   @default(false)
+
+  @@map("brands")
+}
+
+model BrandAudience {
+  id      String @id @default(cuid())
+  brandId String @unique
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  targetCustomer  String?
+  ageRangeMin     Int?
+  ageRangeMax     Int?
+  interests       String[]
+  painPoints      String[]
+  desires         String[]
+  buyingBehavior  String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("brand_audiences")
+}
+
+enum VoiceTone {
+  PROFESSIONAL
+  FRIENDLY
+  BOLD
+  EDUCATIONAL
+  LUXURY
+  MINIMAL
+  HUMOROUS
+  INSPIRATIONAL
+  TECHNICAL
+}
+
+model BrandVoice {
+  id      String @id @default(cuid())
+  brandId String @unique
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  primaryTone        VoiceTone
+  secondaryTones      VoiceTone[]
+  customInstructions String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("brand_voices")
+}
+
+model BrandVisualIdentity {
+  id      String @id @default(cuid())
+  brandId String @unique
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  logoUrl         String?
+  primaryColor    String?
+  secondaryColor  String?
+  accentColor     String?
+  fontPrimary     String?
+  fontSecondary   String?
+  imageStyle      String?
+  designReferences String[]
+
+  updatedAt DateTime @updatedAt
+
+  @@map("brand_visual_identities")
+}
+
+enum Dialect {
+  MSA
+  EGYPTIAN
+  GULF
+  LEVANTINE
+  MAGHREBI
+  NONE
+}
+
+model BrandContentRules {
+  id      String @id @default(cuid())
+  brandId String @unique
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  wordsToUse      String[]
+  wordsToAvoid    String[]
+  claimsToAvoid   String[]
+  topicsToAvoid   String[]
+  ctaStyle        String?
+  hashtagStrategy String?
+  language        String  @default("en")
+  dialect         Dialect @default(NONE)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("brand_content_rules")
+}
+
+enum MemorySource {
+  APPROVAL_FEEDBACK
+  REJECTION_FEEDBACK
+  MANUAL
+  PERFORMANCE_INSIGHT
+}
+
+// Structured, retrievable brand memory. Each entry is a small, attributable
+// fact/preference — never a giant blob — so it can be selectively retrieved
+// into prompt context and so one bad post can't silently rewrite brand rules.
+model BrandMemoryEntry {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  source     MemorySource
+  key        String // e.g. "tone.promotional_language", "cta.preferred_style"
+  insight    String // human-readable statement of the preference/learning
+  confidence Float  @default(0.5) // 0..1, raised by repetition, never auto-1.0 from a single event
+  contentId  String?
+  content    Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([brandId, key])
+  @@map("brand_memory_entries")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Strategy
+// ────────────────────────────────────────────────────────────────────────────
+
+model Strategy {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  version   Int      @default(1)
+  isActive  Boolean  @default(true)
+  summary   String
+  goals     String[]
+  weeklyThemes Json // string[]
+  recommendedFormats String[]
+  recommendations Json // string[]
+
+  aiModel       String?
+  promptVersion String?
+
+  createdAt DateTime @default(now())
+
+  contentPillars ContentPillar[]
+
+  @@map("strategies")
+}
+
+model ContentPillar {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  strategyId String?
+  strategy   Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+
+  name        String
+  description String
+  targetRatio Float? // approximate share of calendar this pillar should occupy
+
+  createdAt DateTime @default(now())
+
+  calendarItems CalendarItem[]
+  contents      Content[]
+
+  @@map("content_pillars")
+}
+
+model Campaign {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  name        String
+  objective   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+
+  calendarItems CalendarItem[]
+  contents      Content[]
+
+  @@map("campaigns")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Content
+// ────────────────────────────────────────────────────────────────────────────
+
+enum ContentStatus {
+  IDEA
+  DRAFT
+  AI_REVIEW
+  NEEDS_EDIT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  ARCHIVED
+}
+
+enum ContentFormat {
+  POST
+  CAROUSEL
+  STORY
+  REEL
+}
+
+enum ContentPlatform {
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+  LINKEDIN
+  X
+  YOUTUBE
+  THREADS
+  GOOGLE_BUSINESS
+  WHATSAPP
+  EMAIL
+}
+
+model Content {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  contentPillarId String?
+  contentPillar   ContentPillar? @relation(fields: [contentPillarId], references: [id], onDelete: SetNull)
+
+  title    String
+  objective String?
+  format   ContentFormat
+  platform ContentPlatform @default(INSTAGRAM)
+  status   ContentStatus   @default(IDEA)
+
+  hook     String?
+  caption  String?
+  cta      String?
+  hashtags String[]
+
+  // Structured payload for the format (carousel slides, creative brief, etc.)
+  // shape validated by Zod at write time — see lib/validation/content.ts
+  body Json
+
+  promptVersion String?
+  aiModel       String?
+
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions        ContentVersion[]
+  assets          ContentAsset[]
+  qualityReviews  QualityReview[]
+  approvalEvents  ApprovalEvent[]
+  calendarItem    CalendarItem?
+  publishingJobs  PublishingJob[]
+  analyticsMetrics AnalyticsMetric[]
+  brandMemoryEntries BrandMemoryEntry[]
+
+  @@index([brandId, status])
+  @@map("contents")
+}
+
+model ContentVersion {
+  id        String  @id @default(cuid())
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  versionNumber Int
+  snapshot      Json // full Content body/caption/hook/cta snapshot at this point
+  changeSummary String?
+  createdBy     String? // "ai" | userId
+
+  createdAt DateTime @default(now())
+
+  @@unique([contentId, versionNumber])
+  @@map("content_versions")
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  DESIGN_BRIEF
+}
+
+enum AssetProvider {
+  MOCK
+  UPLOAD
+  EXTERNAL_API
+}
+
+model ContentAsset {
+  id        String  @id @default(cuid())
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  slideNumber Int? // for carousels
+  type        AssetType
+  provider    AssetProvider
+  url         String?
+  storageKey  String?
+  visualBrief Json? // layout, hierarchy, typography, imagery direction, aspect ratio, safe area
+
+  createdAt DateTime @default(now())
+
+  @@map("content_assets")
+}
+
+enum ReviewOutcome {
+  APPROVED
+  NEEDS_WORK
+}
+
+model QualityReview {
+  id        String  @id @default(cuid())
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  overallScore Int
+  scores       Json // { hook, clarity, value, brandFit, audienceFit, originality, cta, visualDirection, accuracy, platformFit }
+  strengths       String[]
+  weaknesses      String[]
+  issues          String[]
+  recommendations String[]
+  outcome         ReviewOutcome
+
+  promptVersion String?
+  aiModel       String?
+
+  createdAt DateTime @default(now())
+
+  @@map("quality_reviews")
+}
+
+enum ApprovalAction {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  REGENERATE
+}
+
+model ApprovalEvent {
+  id        String  @id @default(cuid())
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action ApprovalAction
+  reason String?
+
+  createdAt DateTime @default(now())
+
+  @@map("approval_events")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Calendar
+// ────────────────────────────────────────────────────────────────────────────
+
+model CalendarItem {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  contentId String? @unique
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  contentPillarId String?
+  contentPillar   ContentPillar? @relation(fields: [contentPillarId], references: [id], onDelete: SetNull)
+
+  title         String
+  scheduledFor  DateTime
+  platform      ContentPlatform @default(INSTAGRAM)
+  format        ContentFormat
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId, scheduledFor])
+  @@map("calendar_items")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Integrations & publishing
+// ────────────────────────────────────────────────────────────────────────────
+
+enum IntegrationType {
+  INSTAGRAM
+  N8N
+  IMAGE_PROVIDER
+}
+
+enum IntegrationStatus {
+  NOT_CONNECTED
+  CONNECTED
+  ERROR
+  MOCK
+}
+
+model Integration {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  type   IntegrationType
+  status IntegrationStatus @default(NOT_CONNECTED)
+
+  // Secrets are never stored in plaintext; encryptedCredentials holds an
+  // AES-256-GCM ciphertext produced by lib/security/crypto.ts.
+  encryptedCredentials String?
+  accountId            String?
+  accountName          String?
+  metadata             Json?
+
+  lastCheckedAt DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brandId, type])
+  @@map("integrations")
+}
+
+enum PublishingJobStatus {
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  RETRYING
+}
+
+model PublishingJob {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  status        PublishingJobStatus @default(QUEUED)
+  provider      String // "mock" | "instagram_graph"
+  scheduledFor  DateTime
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(3)
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime?
+
+  externalPostId String?
+  errorMessage   String?
+
+  idempotencyKey String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId, status])
+  @@map("publishing_jobs")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Analytics & insights
+// ────────────────────────────────────────────────────────────────────────────
+
+model AnalyticsMetric {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  contentId String?
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  capturedAt DateTime
+  likes           Int @default(0)
+  comments        Int @default(0)
+  shares          Int @default(0)
+  saves           Int @default(0)
+  reach           Int @default(0)
+  impressions     Int @default(0)
+  profileVisits   Int @default(0)
+  followerDelta   Int @default(0)
+  engagementRate  Float @default(0)
+
+  source    String @default("mock") // "instagram_graph" | "mock"
+  isSeedData Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([brandId, capturedAt])
+  @@map("analytics_metrics")
+}
+
+enum InsightStatus {
+  NEW
+  ACKNOWLEDGED
+  APPLIED
+  DISMISSED
+}
+
+model AIInsight {
+  id      String @id @default(cuid())
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  summary         String
+  winningPatterns Json // string[]
+  losingPatterns  Json // string[]
+  recommendations Json // string[]
+  experiments     Json // string[]
+  confidence      Float @default(0.5)
+  status          InsightStatus @default(NEW)
+
+  promptVersion String?
+  aiModel       String?
+
+  createdAt DateTime @default(now())
+
+  @@map("ai_insights")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Observability
+// ────────────────────────────────────────────────────────────────────────────
+
+enum AIJobType {
+  STRATEGY
+  CONTENT_GENERATION
+  CAROUSEL_GENERATION
+  CAPTION_GENERATION
+  CREATIVE_DIRECTION
+  QUALITY_REVIEW
+  ANALYTICS_INSIGHT
+  IMAGE_GENERATION
+}
+
+enum AIJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model AIJob {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  brandId        String?
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  type   AIJobType
+  status AIJobStatus @default(PENDING)
+
+  provider      String // "claude"
+  model         String?
+  promptVersion String?
+
+  inputSummary  Json?
+  outputSummary Json?
+  errorMessage  String?
+  attempts      Int @default(0)
+
+  requestId String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([brandId, type])
+  @@map("ai_jobs")
+}
+
+enum WebhookDirection {
+  INBOUND // from n8n into AURIX
+  OUTBOUND // from AURIX to n8n
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED_DUPLICATE
+  FAILED
+}
+
+model WebhookEvent {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  direction      WebhookDirection
+  eventType      String // e.g. "content.created", "content.published"
+  eventId        String
+  idempotencyKey String @unique
+  payload        Json
+  status         WebhookStatus @default(RECEIVED)
+  errorMessage   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@map("webhook_events")
+}
+
+model AuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  category  String // "ai" | "auth" | "publishing" | "webhook" | "analytics"
+  action    String
+  requestId String?
+  actorId   String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([category, createdAt])
+  @@map("audit_events")
+}
