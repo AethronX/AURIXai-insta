@@ -82,11 +82,11 @@ export function OnboardingForm({ action }: { action: Action }) {
             Back
           </Button>
           {!isLast ? (
-            <Button type="button" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
+            <Button key="continue" type="button" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
               Continue
             </Button>
           ) : (
-            <Button type="submit" disabled={pending}>
+            <Button key="submit" type="submit" disabled={pending}>
               {pending ? "Setting up your brand…" : "Finish setup"}
             </Button>
           )}

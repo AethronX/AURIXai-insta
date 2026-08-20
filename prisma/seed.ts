@@ -42,10 +42,17 @@ async function writePlaceholderImage(key: string, label: string, from: string, t
 }
 
 async function main() {
-  const existing = await prisma.organization.findUnique({ where: { slug: DEMO_ORG_SLUG } });
-  if (existing) {
+  // Organization deletion cascades to Membership/Brand/Content/etc. (all FK'd with onDelete:
+  // Cascade), but User has no FK back to Organization — it must be removed separately or a
+  // reseed fails on the email unique constraint.
+  const existingOrg = await prisma.organization.findUnique({ where: { slug: DEMO_ORG_SLUG } });
+  if (existingOrg) {
     console.log(`Removing existing demo org (${DEMO_ORG_SLUG}) to reseed cleanly…`);
-    await prisma.organization.delete({ where: { id: existing.id } });
+    await prisma.organization.delete({ where: { id: existingOrg.id } });
+  }
+  const existingUser = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
+  if (existingUser) {
+    await prisma.user.delete({ where: { id: existingUser.id } });
   }
 
   console.log("Creating demo organization, user, and brand…");
