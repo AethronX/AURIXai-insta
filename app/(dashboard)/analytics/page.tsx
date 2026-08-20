@@ -64,6 +64,7 @@ export default async function AnalyticsPage() {
           recommendations: i.recommendations as string[],
           experiments: i.experiments as string[],
           confidence: i.confidence,
+          status: i.status,
           createdAt: i.createdAt,
         }))}
       />

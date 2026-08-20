@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/security/auth";
 import { getPrimaryBrand } from "@/lib/brand/service";
 import { syncAnalyticsForBrand } from "@/lib/analytics/sync";
 import { generateAnalyticsInsight } from "@/lib/ai/analytics-agent";
+import { applyInsight, dismissInsight } from "@/lib/ai/optimization";
 import type { ActionResult } from "@/lib/actions/ai-actions";
 
 export async function syncAnalyticsAction(): Promise<ActionResult & { summary?: string }> {
@@ -34,5 +35,29 @@ export async function generateInsightsAction(): Promise<ActionResult> {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to generate insights." };
+  }
+}
+
+export async function applyInsightAction(insightId: string): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    await applyInsight({ insightId, organizationId: user.organizationId });
+    revalidatePath("/analytics");
+    revalidatePath("/strategy");
+    revalidatePath("/brand");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to apply insight." };
+  }
+}
+
+export async function dismissInsightAction(insightId: string): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    await dismissInsight(insightId, user.organizationId);
+    revalidatePath("/analytics");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to dismiss insight." };
   }
 }
