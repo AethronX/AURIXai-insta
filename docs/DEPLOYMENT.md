@@ -6,6 +6,20 @@ with real timeouts, and the publishing runner assumes it can complete a batch of
 invocation), so target a platform that runs a long-lived Node server rather than short-lived edge
 functions.
 
+## Current deployment
+
+Live on Vercel (project `aurix-social-ai-app`, linked to this repo's default branch) with a
+Supabase-hosted Postgres database (`aurix-social-ai`, `us-east-1`) as `DATABASE_URL`, connected
+through Supabase's pooler in transaction mode (`?pgbouncer=true`) rather than the direct
+IPv6-only host, since Vercel's functions need an IPv4-reachable, connection-pooled endpoint.
+Running with `MOCK_MODE=true` — no live Claude/Instagram/n8n credentials configured yet.
+
+Vercel's Node functions are request-scoped and time-limited (unlike the long-lived server this
+doc otherwise assumes), which matters once `MOCK_MODE=false` and generation/publishing calls hit
+real external APIs — watch for `maxDuration` limits on Server Actions/routes that call Claude or
+the publishing runner, and raise them (or move that work to a queue) before relying on this for
+real, non-mock traffic at scale.
+
 ## Build & run
 
 ```bash
