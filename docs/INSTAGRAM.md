@@ -10,7 +10,7 @@ implementations:
   `MOCK_MODE=true` (the default).
 
 `lib/social/registry.ts` picks between them per brand — never presents mock output as if it were
-a live connection (the Settings page and every publishing job record whether `mock: true`).
+a live connection (the Integrations page and every publishing job record whether `mock: true`).
 
 ## Requirements for a real connection
 

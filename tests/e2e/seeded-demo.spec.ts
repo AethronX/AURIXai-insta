@@ -63,8 +63,8 @@ test.describe("seeded demo brand", () => {
     await expect(page.locator("body")).toContainText("Reduce promotional");
   });
 
-  test("settings shows the mock Instagram connection", async ({ page }) => {
-    await page.goto("/settings");
+  test("integrations shows the mock Instagram connection", async ({ page }) => {
+    await page.goto("/integrations");
     await expect(page.locator("body")).toContainText("acmecoffeeco");
   });
 

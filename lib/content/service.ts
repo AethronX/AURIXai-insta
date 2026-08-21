@@ -43,6 +43,19 @@ export async function listApprovalQueue(brandId: string) {
   });
 }
 
+/** Everything that needs a human's attention right now: AI-cleared items awaiting approval,
+ * and items an AI review or a prior human rejection sent back for revision. */
+export async function listReviewQueue(brandId: string) {
+  return prisma.content.findMany({
+    where: { brandId, status: { in: ["PENDING_APPROVAL", "NEEDS_EDIT"] } },
+    include: {
+      qualityReviews: { orderBy: { createdAt: "desc" }, take: 1 },
+      contentPillar: true,
+    },
+    orderBy: { updatedAt: "asc" },
+  });
+}
+
 export async function listUpcoming(brandId: string) {
   return prisma.calendarItem.findMany({
     where: { brandId, scheduledFor: { gte: new Date() } },

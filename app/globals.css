@@ -1,59 +1,72 @@
 @import "tailwindcss";
 
+/* AURIX Command Center design system — extracted from the approved design. */
 :root {
-  --background: #fafafa;
+  --background: #f7f7fb;
   --surface: #ffffff;
-  --surface-hover: #f4f4f5;
-  --foreground: #18181b;
-  --muted: #71717a;
-  --muted-foreground: #a1a1aa;
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
+  --surface-hover: #f2f1f8;
+  --surface-subtle: #fbfbfe;
+  --foreground: #161327;
+  --muted: #615d7d;
+  --muted-foreground: #928fab;
+  --border: #e7e6f0;
+  --border-light: #eeedf5;
+  --border-strong: #d8d5e8;
 
-  --brand: #4f46e5;
-  --brand-hover: #4338ca;
+  --brand: #5b21e8;
+  --brand-hover: #4c17cf;
+  --brand-gradient-top: #6d3af0;
   --brand-foreground: #ffffff;
-  --brand-soft: #eef2ff;
+  --brand-soft: #f1eefe;
 
-  --success: #16a34a;
-  --success-soft: #f0fdf4;
-  --warning: #d97706;
-  --warning-soft: #fffbeb;
-  --danger: #dc2626;
-  --danger-soft: #fef2f2;
+  --success: #0f8f63;
+  --success-strong: #0d7d57;
+  --success-soft: #f0fdf6;
+  --warning: #b8760a;
+  --warning-strong: #8f5a05;
+  --warning-soft: #fffaf1;
+  --danger: #d4372c;
+  --danger-strong: #b52e24;
+  --danger-soft: #fef6f5;
   --info: #0284c7;
   --info-soft: #f0f9ff;
 
-  --radius-sm: 6px;
+  --radius-sm: 7px;
   --radius-md: 10px;
   --radius-lg: 14px;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(22 19 39 / 0.04);
+  --shadow-md: 0 16px 40px rgb(31 22 84 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #09090b;
-    --surface: #131316;
-    --surface-hover: #1c1c20;
-    --foreground: #f4f4f5;
-    --muted: #a1a1aa;
-    --muted-foreground: #71717a;
-    --border: #27272a;
-    --border-strong: #3f3f46;
+    --background: #0f0d1a;
+    --surface: #17142a;
+    --surface-hover: #201c38;
+    --surface-subtle: #1b1830;
+    --foreground: #f2f0fa;
+    --muted: #a9a5c4;
+    --muted-foreground: #726d92;
+    --border: #2a2645;
+    --border-light: #241f3d;
+    --border-strong: #3a3560;
 
-    --brand: #6366f1;
-    --brand-hover: #818cf8;
+    --brand: #8b5cf6;
+    --brand-hover: #a480fa;
+    --brand-gradient-top: #9d6bfa;
     --brand-foreground: #ffffff;
-    --brand-soft: #1e1b4b;
+    --brand-soft: #241a4a;
 
     --success: #22c55e;
-    --success-soft: #052e16;
-    --warning: #f59e0b;
-    --warning-soft: #451a03;
-    --danger: #f87171;
-    --danger-soft: #450a0a;
+    --success-strong: #4ade80;
+    --success-soft: #0d2818;
+    --warning: #f0a020;
+    --warning-strong: #f7bb52;
+    --warning-soft: #2e2107;
+    --danger: #f2685c;
+    --danger-strong: #f89189;
+    --danger-soft: #331211;
     --info: #38bdf8;
     --info-soft: #082f49;
   }
@@ -63,10 +76,12 @@
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-subtle: var(--surface-subtle);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-border-light: var(--border-light);
   --color-border-strong: var(--border-strong);
 
   --color-brand: var(--brand);
@@ -83,20 +98,27 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-satoshi);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-satoshi), "Almarai", ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
   border-color: var(--color-border);
 }
 
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
 ::selection {
   background: var(--brand-soft);
 }
+
+@keyframes auPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes auIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
