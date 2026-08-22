@@ -47,7 +47,7 @@ the one and only place that decides which provider name is active; `provider-reg
 Every generator funnels through the same pipeline:
 
 ```
-Claude (generateText)
+generateText()            provider.generateText(), with responseSchema set to the caller's Zod schema
    → extractJson()          strips markdown fences, falls back to outermost {...}
    → schema.safeParse()     Zod validation against lib/validation/ai-schemas.ts
    → valid?
@@ -62,15 +62,32 @@ loop means a malformed first response is usually still recoverable. See
 `tests/unit/structured-output.test.ts` for the exact behavior under a fake provider (no live API
 key needed to verify this logic).
 
+**GeminiProvider requests native JSON output.** Every call into `generateValidatedJSON` carries a
+Zod schema, which `structured-output.ts` forwards to the provider as `GenerateTextParams.responseSchema`
+(`lib/ai/provider.ts`). `GeminiProvider` uses that as a signal to set `responseMimeType:
+"application/json"` on the `@google/genai` call (`lib/ai/gemini-provider.ts`) — this is what fixes
+"No JSON object found in AI response": the model can no longer wrap its answer in prose or markdown
+fences, which `extractJson()`'s fallback slicing couldn't always recover from. Deliberately *not*
+also passing Gemini's schema-constrained modes (`responseSchema`/`responseJsonSchema`): both use
+restricted, provider-specific schema dialects (a JSON-Schema keyword subset with no `pattern`/
+`minLength`/property-scoped `$ref` for the latter; Google's own OpenAPI-subset `Schema` type, not
+JSON Schema, for the former) that this codebase's Zod schemas — regex-constrained hex colors,
+nullable ints, enum arrays — don't convert into safely without live-API verification. `ClaudeProvider`
+ignores `responseSchema` entirely (Claude's structured output here stays prompt-based). Either way,
+**Zod remains the only structural validator** — a provider's JSON-mode setting is a hint that
+reduces malformed responses, never a replacement for `schema.safeParse()`.
+
 ### Error classification
 
 Both providers map their SDK's HTTP status onto the same `AIErrorCode` (`lib/ai/provider.ts`, via
 `classifyHttpStatus()`) instead of leaving callers to grep prose: `PROVIDER_NOT_CONFIGURED`,
 `MODEL_NOT_FOUND` (e.g. Google's "this model is no longer available" 404),
 `INVALID_API_KEY` (401), `PERMISSION_DENIED` (403), `RATE_LIMITED` (429), `INVALID_REQUEST` (400),
-`NETWORK_ERROR` (5xx or a non-`ApiError` network failure), `SCHEMA_VALIDATION_FAILED` (Zod
-rejected the model's output), `UNKNOWN` (anything not classified above). `generateValidatedJSON`
-carries the code through the retry loop, prefixes it onto the persisted `AIJob.errorMessage` as
+`NETWORK_ERROR` (5xx or a non-`ApiError` network failure), `MALFORMED_RESPONSE` (`extractJson()`
+found no parseable JSON in the response at all — retryable, since the repair prompt often recovers
+it), `SCHEMA_VALIDATION_FAILED` (valid JSON, but Zod rejected its shape), `UNKNOWN` (anything not
+classified above). `generateValidatedJSON` carries the code through the retry loop, prefixes it
+onto the persisted `AIJob.errorMessage` as
 `[CODE] message`, and attaches it to the thrown `AIGenerationError.code` — never the raw
 credential or full prompt, only provider name / model / job id / attempt / code. See
 `tests/unit/ai-error-classification.test.ts` and the error-code cases in

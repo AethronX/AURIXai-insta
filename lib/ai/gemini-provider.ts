@@ -38,6 +38,22 @@ export class GeminiProvider implements AIProvider {
           systemInstruction: params.system,
           maxOutputTokens: params.maxTokens ?? 4096,
           temperature: params.temperature ?? 0.7,
+          // When the caller (structured-output.ts) needs JSON back, ask Gemini's native
+          // structured-output mode for it instead of relying on prompt instructions the model can
+          // ignore — this is what actually fixes "No JSON object found in AI response": the model
+          // can no longer wrap the JSON in prose or markdown fences.
+          //
+          // Deliberately NOT also passing responseSchema/responseJsonSchema here: Gemini's two
+          // schema-constrained modes use restricted dialects (responseJsonSchema supports only a
+          // documented subset of JSON Schema keywords — no `pattern`/`minLength`/property-scoped
+          // `$ref`; responseSchema uses Google's own OpenAPI-subset Schema type, not JSON Schema,
+          // so a converted Zod schema can't be handed to it directly). Converting
+          // brandExtractionOutputSchema (regex-constrained hex colors, nullable ints, enum refs)
+          // into either dialect without the ability to test against the live API risks trading
+          // one unverified failure mode for another. responseMimeType alone is unconditionally
+          // supported and needs no schema translation; Zod (lib/validation/ai-schemas.ts) stays
+          // the actual structural validator either way, per the retry loop below.
+          ...(params.responseSchema ? { responseMimeType: "application/json" } : {}),
         },
       });
 

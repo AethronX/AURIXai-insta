@@ -3,6 +3,7 @@
  * quality reviewer, analytics agent) only ever talks to this interface — never to the Anthropic
  * SDK directly — so the reasoning provider can be swapped without touching business logic.
  */
+import type { z } from "zod";
 
 export interface AIUsage {
   inputTokens: number;
@@ -16,6 +17,16 @@ export interface GenerateTextParams {
   model: string;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * The Zod schema the caller will validate the response against (structured-output.ts always
+   * passes this — it's the same schema generateValidatedJSON later calls .safeParse with).
+   * Providers with native structured-output support (GeminiProvider: responseMimeType +
+   * responseJsonSchema) may use this to constrain generation so the model can't return prose
+   * around the JSON. Providers without that capability (ClaudeProvider) simply ignore it — Zod
+   * validation downstream remains the single source of truth regardless of what a provider does
+   * with this hint.
+   */
+  responseSchema?: z.ZodType<unknown>;
 }
 
 export interface GenerateTextResult {
@@ -37,6 +48,7 @@ export type AIErrorCode =
   | "RATE_LIMITED"
   | "NETWORK_ERROR"
   | "INVALID_REQUEST"
+  | "MALFORMED_RESPONSE"
   | "SCHEMA_VALIDATION_FAILED"
   | "UNKNOWN";
 

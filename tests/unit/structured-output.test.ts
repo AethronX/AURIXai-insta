@@ -111,6 +111,58 @@ describe("generateValidatedJSON", () => {
     expect(jobs.some((j) => j.status === "FAILED")).toBe(true);
   });
 
+  it("classifies a response with no extractable JSON as MALFORMED_RESPONSE, retries once, and still tags the failed job", async () => {
+    // Regression test for the exact reported bug: "AI generation failed after retries: No JSON
+    // object found in AI response" — this is retryable (the model gets one more chance with the
+    // parse failure fed back to it), unlike a hard provider error such as PROVIDER_NOT_CONFIGURED.
+    generateText
+      .mockResolvedValueOnce({
+        text: "I'd be happy to help with that request.",
+        usage: { inputTokens: 1, outputTokens: 1 },
+        stopReason: "end_turn",
+      })
+      .mockResolvedValueOnce({
+        text: "Still no JSON here either.",
+        usage: { inputTokens: 1, outputTokens: 1 },
+        stopReason: "end_turn",
+      });
+
+    await expect(
+      generateValidatedJSON({
+        jobType: "CONTENT_GENERATION",
+        task: "fast",
+        system: "sys",
+        prompt: "prompt",
+        schema,
+        promptVersion: "test.v1",
+      })
+    ).rejects.toMatchObject({ code: "MALFORMED_RESPONSE" });
+
+    expect(generateText).toHaveBeenCalledTimes(2);
+    const jobs = Object.values(aiJobStore) as Array<{ errorMessage?: string }>;
+    expect(jobs.some((j) => j.errorMessage?.startsWith("[MALFORMED_RESPONSE]"))).toBe(true);
+  });
+
+  it("forwards the Zod schema to the provider as responseSchema so a provider can request native JSON output", async () => {
+    generateText.mockResolvedValueOnce({
+      text: '{"title": "Hello", "score": 92}',
+      usage: { inputTokens: 10, outputTokens: 5 },
+      stopReason: "end_turn",
+    });
+
+    await generateValidatedJSON({
+      jobType: "CONTENT_GENERATION",
+      task: "fast",
+      system: "sys",
+      prompt: "prompt",
+      schema,
+      promptVersion: "test.v1",
+    });
+
+    const callArgs = generateText.mock.calls[0][0];
+    expect(callArgs.responseSchema).toBe(schema);
+  });
+
   it("never returns data that doesn't satisfy the schema, even if JSON parses cleanly", async () => {
     generateText.mockResolvedValue({
       text: '{"title": "ok", "score": "not-a-number"}',

@@ -85,8 +85,32 @@ export async function generateValidatedJSON<T>(
         model,
         maxTokens: params.maxTokens,
         temperature: params.temperature,
+        // Lets a provider with native structured-output support (GeminiProvider) request JSON at
+        // the SDK level instead of relying solely on prompt wording. Never sent anywhere as text.
+        responseSchema: params.schema,
       });
       lastRawText = result.text;
+
+      // [AI DEBUG] response shape only — never the response content itself, which may contain
+      // brand/business details the user hasn't approved for logging.
+      const trimmed = result.text.trim();
+      logger.info(
+        {
+          jobId: job.id,
+          provider: provider.name,
+          model,
+          attempt,
+          responseLength: result.text.length,
+          responseFormat: trimmed.startsWith("{")
+            ? "raw-json"
+            : trimmed.includes("```")
+              ? "fenced"
+              : trimmed.length === 0
+                ? "empty"
+                : "prose-or-other",
+        },
+        "[AI] response received"
+      );
 
       const parsed = extractJson(result.text);
       const validated = params.schema.safeParse(parsed);
