@@ -77,6 +77,25 @@ ignores `responseSchema` entirely (Claude's structured output here stays prompt-
 **Zod remains the only structural validator** — a provider's JSON-mode setting is a hint that
 reduces malformed responses, never a replacement for `schema.safeParse()`.
 
+**GeminiProvider disables thinking for structured output.** `responseMimeType: "application/json"`
+alone wasn't sufficient — Gemini 3.x models spend "thinking" tokens by default when no
+`thinkingConfig` is set, and those tokens draw from the *same* `maxOutputTokens` budget as the
+final answer (confirmed against Google's own docs and real-world bug reports — a low/moderate
+token budget can be almost entirely consumed by thinking, silently truncating the JSON mid-object
+and producing exactly "AI response contained a { ... } slice that is not valid JSON", not "no JSON
+found"). Since this pipeline needs a direct structured answer rather than chain-of-thought
+reasoning — AI quality review is already a separate, explicit generation step — `GeminiProvider`
+sets `thinkingConfig: { thinkingBudget: 0 }` alongside `responseMimeType` whenever a schema is
+present. `thinkingBudget: 0` is the only way to fully disable thinking on Gemini 3 models, and it
+cannot be combined with `thinkingLevel` (the SDK/API rejects that combination), so nothing else in
+`config` should ever set `thinkingLevel` on this path.
+
+`structured-output.ts` also logs a temporary, bounded diagnostic line before parsing
+(`"[AI STRUCTURED OUTPUT DEBUG]"`: provider, model, attempt, response length, `stopReason`,
+prefix/suffix up to 150 chars, and a few boolean shape checks) so a truncation (`stopReason:
+"MAX_TOKENS"`) is directly distinguishable in production logs from a genuinely malformed response —
+never the full prompt, full response, or any credential.
+
 ### Error classification
 
 Both providers map their SDK's HTTP status onto the same `AIErrorCode` (`lib/ai/provider.ts`, via

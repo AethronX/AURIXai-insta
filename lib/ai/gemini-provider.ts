@@ -53,7 +53,22 @@ export class GeminiProvider implements AIProvider {
           // one unverified failure mode for another. responseMimeType alone is unconditionally
           // supported and needs no schema translation; Zod (lib/validation/ai-schemas.ts) stays
           // the actual structural validator either way, per the retry loop below.
-          ...(params.responseSchema ? { responseMimeType: "application/json" } : {}),
+          ...(params.responseSchema
+            ? {
+                responseMimeType: "application/json",
+                // Root cause of "AI response contained a { ... } slice that is not valid JSON":
+                // Gemini 3.x models spend "thinking" tokens by default when no thinkingConfig is
+                // set, and those tokens are drawn from the SAME maxOutputTokens budget as the
+                // final answer (confirmed via Google's own docs and reproduced bug reports, e.g.
+                // googleapis/python-genai#2062 and ha-llmvision#609 — a low/moderate
+                // maxOutputTokens can be almost entirely consumed by thinking, truncating the JSON
+                // mid-object). This pipeline needs a direct structured answer, not chain-of-thought
+                // reasoning — quality review is already a separate, explicit generation step — so
+                // thinking is turned off entirely (thinkingBudget: 0 is the only way to fully
+                // disable it; it cannot be combined with thinkingLevel on Gemini 3 models).
+                thinkingConfig: { thinkingBudget: 0 },
+              }
+            : {}),
         },
       });
 

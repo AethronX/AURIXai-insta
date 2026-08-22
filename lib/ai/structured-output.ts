@@ -91,8 +91,13 @@ export async function generateValidatedJSON<T>(
       });
       lastRawText = result.text;
 
-      // [AI DEBUG] response shape only — never the response content itself, which may contain
-      // brand/business details the user hasn't approved for logging.
+      // [AI STRUCTURED OUTPUT DEBUG] — temporary, targeted diagnostics for tracing malformed
+      // responses back to their real cause (truncation vs. prose-wrapping vs. genuinely bad JSON).
+      // Deliberately bounded to short prefix/suffix slices, never the full response, full prompt,
+      // or any credential. stopReason is the single most useful field here: Gemini 3.x models
+      // spend "thinking" tokens from the same maxOutputTokens budget by default (no thinkingConfig
+      // set), so a low maxTokens can leave too little room for the actual JSON and truncate it —
+      // that shows up as stopReason "MAX_TOKENS" with a { ... } slice that never closes.
       const trimmed = result.text.trim();
       logger.info(
         {
@@ -101,15 +106,15 @@ export async function generateValidatedJSON<T>(
           model,
           attempt,
           responseLength: result.text.length,
-          responseFormat: trimmed.startsWith("{")
-            ? "raw-json"
-            : trimmed.includes("```")
-              ? "fenced"
-              : trimmed.length === 0
-                ? "empty"
-                : "prose-or-other",
+          stopReason: result.stopReason,
+          startsWithObject: trimmed.startsWith("{"),
+          endsWithObject: trimmed.endsWith("}"),
+          startsWithFence: trimmed.startsWith("```"),
+          containsFence: trimmed.includes("```"),
+          prefix: trimmed.slice(0, 150),
+          suffix: trimmed.slice(-150),
         },
-        "[AI] response received"
+        "[AI STRUCTURED OUTPUT DEBUG]"
       );
 
       const parsed = extractJson(result.text);
