@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireBrandOrRedirect } from "@/lib/brand/service";
 import { getDashboardOverview } from "@/lib/dashboard/service";
-import { isClaudeConfigured, isN8nConfigured } from "@/lib/env";
+import { getEnv, isAIProviderConfigured, isN8nConfigured } from "@/lib/env";
 import { formatNumber, formatPercent, formatRelativeTime } from "@/lib/utils";
 import { StatusBadge } from "@/components/content/status-badge";
 import { InsightBanner } from "@/components/dashboard/insight-banner";
@@ -51,7 +51,8 @@ export default async function DashboardPage() {
   const scheduled = statusCounts.SCHEDULED ?? 0;
 
   const instagramConnected = instagramIntegration?.status === "CONNECTED" || instagramIntegration?.status === "MOCK";
-  const claudeOn = isClaudeConfigured();
+  const aiProviderLabel = getEnv().AI_PROVIDER === "gemini" ? "Gemini" : "Claude";
+  const aiProviderOn = isAIProviderConfigured();
   const n8nOn = isN8nConfigured();
 
   const needsAttention: Array<{ tone: "danger" | "warning" | "neutral"; text: string; href: string }> = [];
@@ -74,8 +75,8 @@ export default async function DashboardPage() {
   if (reviewQueue.length > 0) {
     needsAttention.push({ tone: "warning", text: `${reviewQueue.length} item(s) waiting for your review`, href: "/review" });
   }
-  if (!claudeOn) {
-    needsAttention.push({ tone: "warning", text: "Claude API key isn't set — AI generation is disabled.", href: "/integrations" });
+  if (!aiProviderOn) {
+    needsAttention.push({ tone: "warning", text: `${aiProviderLabel} API key isn't set — AI generation is disabled.`, href: "/integrations" });
   }
   if (!n8nOn) {
     needsAttention.push({ tone: "neutral", text: "n8n isn't configured — automation workflows are inactive.", href: "/integrations" });
@@ -84,7 +85,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatusPill label="Claude" ok={claudeOn} onLabel="Connected" offLabel="Not configured" />
+        <StatusPill label={aiProviderLabel} ok={aiProviderOn} onLabel="Connected" offLabel="Not configured" />
         <StatusPill label="n8n" ok={n8nOn} onLabel="Configured" offLabel="Not configured" />
         <StatusPill label="Instagram" ok={instagramConnected} onLabel={instagramIntegration?.status === "MOCK" ? "Mock" : "Connected"} offLabel={instagramIntegration?.status === "ERROR" ? "Error" : "Not connected"} />
         <StatusPill

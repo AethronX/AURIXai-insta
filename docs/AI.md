@@ -1,16 +1,22 @@
 # AI Configuration & Prompt System
 
-Claude is the primary reasoning/content-intelligence layer, accessed only through the
-`AIProvider` interface (`lib/ai/provider.ts`) — never imported directly by generators, actions, or
-UI code.
+Every generator/agent talks only to the `AIProvider` interface (`lib/ai/provider.ts`) — never to
+a vendor SDK directly. `lib/ai/provider-registry.ts` is the single place that picks a concrete
+implementation:
+
+- `ClaudeProvider` (`lib/ai/claude-provider.ts`) — Anthropic, via `@anthropic-ai/sdk`.
+- `GeminiProvider` (`lib/ai/gemini-provider.ts`) — Google, via `@google/genai`. Has a free tier
+  for Flash models through a Google AI Studio key (aistudio.google.com/apikey) — no billing
+  required to get started, unlike Claude's pay-as-you-go API.
 
 ## Configuration
 
-Set `ANTHROPIC_API_KEY` to enable generation. See `docs/ENVIRONMENT.md` for model selection
-(`AI_MODEL_STRATEGY`/`AI_MODEL_CONTENT`/`AI_MODEL_FAST`) and the quality gate threshold.
+Set `AI_PROVIDER` to `claude` or `gemini` (default `claude`), then the matching key:
+`ANTHROPIC_API_KEY` or `GOOGLE_API_KEY`. See `docs/ENVIRONMENT.md` for per-task model selection
+(`AI_MODEL_*` / `GEMINI_MODEL_*`) and the quality gate threshold.
 
 **Without a key, every generator fails with a clear, typed error** (`AINotConfiguredError`,
-surfaced to the UI as "Claude is not configured. Add ANTHROPIC_API_KEY in Settings..."). Nothing
+surfaced to the UI as "\<Provider\> is not configured. Add \<ENV_VAR\> in Settings..."). Nothing
 in this codebase fabricates AI output when the key is missing — the seed script
 (`prisma/seed.ts`) exists precisely so the product can be demoed/tested without one, by writing
 realistic example rows directly rather than pretending to have generated them.

@@ -2,7 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import type { AIJobType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getAIProvider } from "@/lib/ai/claude-provider";
+import { getAIProvider } from "@/lib/ai/provider-registry";
 import { modelForTask, type AITaskComplexity } from "@/lib/ai/models";
 import { extractJson } from "@/lib/ai/json-extract";
 import { AIProviderError } from "@/lib/ai/provider";

@@ -36,9 +36,9 @@ export class AIProviderError extends Error {
 }
 
 export class AINotConfiguredError extends AIProviderError {
-  constructor() {
+  constructor(providerLabel: string, envVar: string) {
     super(
-      "Claude is not configured. Add ANTHROPIC_API_KEY in Settings > Integrations to enable AI generation.",
+      `${providerLabel} is not configured. Add ${envVar} in Settings > Integrations to enable AI generation.`,
       { retryable: false }
     );
     this.name = "AINotConfiguredError";

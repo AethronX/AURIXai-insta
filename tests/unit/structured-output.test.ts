@@ -20,7 +20,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 const generateText = vi.fn();
-vi.mock("@/lib/ai/claude-provider", () => ({
+vi.mock("@/lib/ai/provider-registry", () => ({
   getAIProvider: () => ({
     name: "claude",
     isConfigured: () => true,

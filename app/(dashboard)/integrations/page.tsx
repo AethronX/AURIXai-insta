@@ -1,6 +1,6 @@
 import { requireBrandOrRedirect } from "@/lib/brand/service";
 import { prisma } from "@/lib/db";
-import { getEnv, isClaudeConfigured, isN8nConfigured } from "@/lib/env";
+import { getEnv, isAIProviderConfigured, isN8nConfigured } from "@/lib/env";
 import { isInstagramGraphConfigured } from "@/lib/social/instagram/graph-provider";
 import { InstagramPanel } from "@/components/settings/instagram-panel";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,19 +24,33 @@ export default async function IntegrationsPage() {
       <Card>
         <CardHeader className="items-start">
           <div>
-            <CardTitle>Claude</CardTitle>
+            <CardTitle>{env.AI_PROVIDER === "gemini" ? "Gemini" : "Claude"}</CardTitle>
             <CardDescription>Generation, quality review, strategy, and insights — docs/AI.md</CardDescription>
           </div>
-          <Badge tone={isClaudeConfigured() ? "success" : "warning"}>
-            {isClaudeConfigured() ? "Connected" : "Not configured"}
+          <Badge tone={isAIProviderConfigured() ? "success" : "warning"}>
+            {isAIProviderConfigured() ? "Connected" : "Not configured"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-muted">
-          <p>Strategy model: <span className="text-foreground">{env.AI_MODEL_STRATEGY}</span></p>
-          <p>Content model: <span className="text-foreground">{env.AI_MODEL_CONTENT}</span></p>
-          <p>Fast-task model: <span className="text-foreground">{env.AI_MODEL_FAST}</span></p>
-          {!isClaudeConfigured() && (
-            <p className="mt-2 text-warning">Add ANTHROPIC_API_KEY to your environment to enable generation.</p>
+          <p>Provider: <span className="text-foreground">{env.AI_PROVIDER}</span> (set via AI_PROVIDER)</p>
+          {env.AI_PROVIDER === "gemini" ? (
+            <>
+              <p>Strategy model: <span className="text-foreground">{env.GEMINI_MODEL_STRATEGY}</span></p>
+              <p>Content model: <span className="text-foreground">{env.GEMINI_MODEL_CONTENT}</span></p>
+              <p>Fast-task model: <span className="text-foreground">{env.GEMINI_MODEL_FAST}</span></p>
+            </>
+          ) : (
+            <>
+              <p>Strategy model: <span className="text-foreground">{env.AI_MODEL_STRATEGY}</span></p>
+              <p>Content model: <span className="text-foreground">{env.AI_MODEL_CONTENT}</span></p>
+              <p>Fast-task model: <span className="text-foreground">{env.AI_MODEL_FAST}</span></p>
+            </>
+          )}
+          {!isAIProviderConfigured() && (
+            <p className="mt-2 text-warning">
+              Add {env.AI_PROVIDER === "gemini" ? "GOOGLE_API_KEY" : "ANTHROPIC_API_KEY"} to your environment to
+              enable generation.
+            </p>
           )}
         </CardContent>
       </Card>

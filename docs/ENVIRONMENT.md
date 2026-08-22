@@ -20,14 +20,17 @@ See `.env.example` for the copy-paste template.
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string |
 | `CREDENTIALS_ENCRYPTION_KEY` | **Yes** | Base64-encoded 32-byte key, AES-256-GCM-encrypts integration credentials (e.g. Instagram access tokens) at rest. `openssl rand -base64 32` |
 
-## AI (Claude)
+## AI
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | No* | — | Without it, every AI generation action fails with a clear "Claude is not configured" error — never fake output. *Required for any real generation. |
-| `AI_MODEL_STRATEGY` | No | `claude-opus-4-5` | Used for strategy generation and the analytics agent — the two tasks that most benefit from stronger reasoning |
-| `AI_MODEL_CONTENT` | No | `claude-sonnet-4-5` | Post/carousel generation and quality review |
-| `AI_MODEL_FAST` | No | `claude-haiku-4-5` | Caption regeneration, creative direction — cheap, high-volume tasks |
+| `AI_PROVIDER` | No | `claude` | `claude` \| `gemini` — which reasoning provider `lib/ai/provider-registry.ts` hands back. Only one is active at a time. |
+| `ANTHROPIC_API_KEY` | No* | — | *Required when `AI_PROVIDER=claude` (the default) for any real generation. Without it, every AI generation action fails with a clear "Claude is not configured" error — never fake output. |
+| `AI_MODEL_STRATEGY` | No | `claude-opus-4-5` | Claude model for strategy generation and the analytics agent — the two tasks that most benefit from stronger reasoning |
+| `AI_MODEL_CONTENT` | No | `claude-sonnet-4-5` | Claude model for post/carousel generation and quality review |
+| `AI_MODEL_FAST` | No | `claude-haiku-4-5` | Claude model for caption regeneration, creative direction — cheap, high-volume tasks |
+| `GOOGLE_API_KEY` | No* | — | *Required when `AI_PROVIDER=gemini`. Free tier available for Flash models — get a key at aistudio.google.com/apikey, no billing needed to start. Without it, same clean "Gemini is not configured" failure as Claude. |
+| `GEMINI_MODEL_STRATEGY` / `GEMINI_MODEL_CONTENT` / `GEMINI_MODEL_FAST` | No | `gemini-2.5-flash` | Same per-task split as the Claude models, but only read when `AI_PROVIDER=gemini`. All default to the free-eligible Flash model — override any of them if you want a stronger (paid) Gemini model for a specific task. |
 | `AI_QUALITY_THRESHOLD` | No | `85` | 0-100. AI review routes content to `PENDING_APPROVAL` at/above this score, `NEEDS_EDIT` below. Human approval is always still required to publish regardless of this value. |
 
 ## Image generation

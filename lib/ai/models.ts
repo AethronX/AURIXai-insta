@@ -8,13 +8,9 @@ export type AITaskComplexity = "fast" | "content" | "strategy";
 
 export function modelForTask(task: AITaskComplexity): string {
   const env = getEnv();
-  switch (task) {
-    case "fast":
-      return env.AI_MODEL_FAST;
-    case "strategy":
-      return env.AI_MODEL_STRATEGY;
-    case "content":
-    default:
-      return env.AI_MODEL_CONTENT;
-  }
+  const models =
+    env.AI_PROVIDER === "gemini"
+      ? { fast: env.GEMINI_MODEL_FAST, strategy: env.GEMINI_MODEL_STRATEGY, content: env.GEMINI_MODEL_CONTENT }
+      : { fast: env.AI_MODEL_FAST, strategy: env.AI_MODEL_STRATEGY, content: env.AI_MODEL_CONTENT };
+  return models[task];
 }

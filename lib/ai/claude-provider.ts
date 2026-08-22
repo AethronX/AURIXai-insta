@@ -17,7 +17,7 @@ export class ClaudeProvider implements AIProvider {
 
   private getClient(): Anthropic {
     const env = getEnv();
-    if (!env.ANTHROPIC_API_KEY) throw new AINotConfiguredError();
+    if (!env.ANTHROPIC_API_KEY) throw new AINotConfiguredError("Claude", "ANTHROPIC_API_KEY");
     if (!this.client) {
       this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: REQUEST_TIMEOUT_MS });
     }
@@ -66,10 +66,4 @@ export class ClaudeProvider implements AIProvider {
       throw new AIProviderError("Claude API call failed", { cause: err, retryable: true });
     }
   }
-}
-
-let cached: ClaudeProvider | null = null;
-export function getAIProvider(): AIProvider {
-  if (!cached) cached = new ClaudeProvider();
-  return cached;
 }
