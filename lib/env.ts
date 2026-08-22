@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AIProviderError } from "@/lib/ai/provider";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -14,8 +15,10 @@ const envSchema = z.object({
 
   // Which reasoning provider lib/ai/provider-registry.ts hands back — "claude" needs
   // ANTHROPIC_API_KEY, "gemini" needs GEMINI_API_KEY. Business logic never picks a provider
-  // directly; only this setting does (see docs/AI.md).
-  AI_PROVIDER: z.enum(["claude", "gemini"]).default("claude"),
+  // directly; only this setting does (see docs/AI.md). Deliberately no `.default("claude")`: a
+  // missing/misconfigured AI_PROVIDER must fail loudly via resolveAIProviderName() below, never
+  // silently resolve to "claude" and masquerade as a deliberate choice.
+  AI_PROVIDER: z.enum(["claude", "gemini"]).optional(),
 
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   AI_MODEL_STRATEGY: z.string().default("claude-opus-4-5"),
@@ -85,10 +88,29 @@ export const isClaudeConfigured = (): boolean => Boolean(getEnv().ANTHROPIC_API_
 
 export const isGeminiConfigured = (): boolean => Boolean(getEnv().GEMINI_API_KEY);
 
-/** Whether the currently-selected AI_PROVIDER has its credential set. */
+/**
+ * The ONE authoritative provider-resolution check (lib/ai/provider-registry.ts and
+ * lib/ai/models.ts both call this — no other file re-derives which provider is active). Throws a
+ * typed, diagnosable AIProviderError instead of silently defaulting to "claude" when AI_PROVIDER
+ * is unset, so a missing env var surfaces as "AI_PROVIDER is not configured" — not as a misleading
+ * "Claude is not configured" that looks like Claude was deliberately chosen.
+ */
+export function resolveAIProviderName(): "claude" | "gemini" {
+  const raw = getEnv().AI_PROVIDER;
+  if (raw === "claude" || raw === "gemini") return raw;
+  throw new AIProviderError(
+    "AI_PROVIDER is not configured. Set AI_PROVIDER=claude or AI_PROVIDER=gemini in your environment (see docs/ENVIRONMENT.md) — no provider is assumed by default.",
+    { retryable: false, code: "PROVIDER_NOT_CONFIGURED" }
+  );
+}
+
+/** Whether the currently-selected AI_PROVIDER has its credential set. Never throws — an unset
+ * AI_PROVIDER is reported as simply "not configured" for UI badges rather than an error. */
 export const isAIProviderConfigured = (): boolean => {
   const env = getEnv();
-  return env.AI_PROVIDER === "gemini" ? isGeminiConfigured() : isClaudeConfigured();
+  if (env.AI_PROVIDER === "gemini") return isGeminiConfigured();
+  if (env.AI_PROVIDER === "claude") return isClaudeConfigured();
+  return false;
 };
 
 export const isN8nConfigured = (): boolean => {

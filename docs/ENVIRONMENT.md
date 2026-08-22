@@ -24,7 +24,7 @@ See `.env.example` for the copy-paste template.
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `AI_PROVIDER` | No | `claude` | `claude` \| `gemini` — which reasoning provider `lib/ai/provider-registry.ts` hands back. Only one is active at a time. |
+| `AI_PROVIDER` | **Yes** | — (no default) | `claude` \| `gemini` — which reasoning provider `lib/ai/provider-registry.ts` hands back. Only one is active at a time. Deliberately has no default: an unset or invalid value fails loudly as `PROVIDER_NOT_CONFIGURED` (`lib/env.ts`'s `resolveAIProviderName()`) instead of silently resolving to `claude` and later failing with a misleading "Claude is not configured". |
 | `ANTHROPIC_API_KEY` | No* | — | *Required when `AI_PROVIDER=claude` (the default) for any real generation. Without it, every AI generation action fails with a clear "Claude is not configured" error — never fake output. |
 | `AI_MODEL_STRATEGY` | No | `claude-opus-4-5` | Claude model for strategy generation and the analytics agent — the two tasks that most benefit from stronger reasoning |
 | `AI_MODEL_CONTENT` | No | `claude-sonnet-4-5` | Claude model for post/carousel generation and quality review |

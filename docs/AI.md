@@ -11,7 +11,7 @@ implementation:
 
 ## Configuration
 
-Set `AI_PROVIDER` to `claude` or `gemini` (default `claude`), then the matching key:
+Set `AI_PROVIDER` to `claude` or `gemini` — **required, no default** — then the matching key:
 `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`. See `docs/ENVIRONMENT.md` for per-task model selection
 (`AI_MODEL_*` / `GEMINI_MODEL_*`) and the quality gate threshold.
 
@@ -20,6 +20,13 @@ surfaced to the UI as "\<Provider\> is not configured. Add \<ENV_VAR\> in Settin
 in this codebase fabricates AI output when the key is missing — the seed script
 (`prisma/seed.ts`) exists precisely so the product can be demoed/tested without one, by writing
 realistic example rows directly rather than pretending to have generated them.
+
+**Without `AI_PROVIDER` itself set**, generation fails just as loudly with a distinct error —
+"AI_PROVIDER is not configured..." (`PROVIDER_NOT_CONFIGURED`, thrown by `resolveAIProviderName()`
+in `lib/env.ts`) — rather than silently resolving to `claude` and then failing with a "Claude is
+not configured" message that looks like Claude was deliberately selected when it wasn't. This is
+the one and only place that decides which provider name is active; `provider-registry.ts` and
+`lib/ai/models.ts` both call it instead of re-deriving `AI_PROVIDER` themselves.
 
 ## Cost control
 
