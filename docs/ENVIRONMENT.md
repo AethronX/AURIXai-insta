@@ -30,7 +30,7 @@ See `.env.example` for the copy-paste template.
 | `AI_MODEL_CONTENT` | No | `claude-sonnet-4-5` | Claude model for post/carousel generation and quality review |
 | `AI_MODEL_FAST` | No | `claude-haiku-4-5` | Claude model for caption regeneration, creative direction — cheap, high-volume tasks |
 | `GEMINI_API_KEY` | No* | — | *Required when `AI_PROVIDER=gemini`. Free tier available for Flash models — get a key at aistudio.google.com/apikey, no billing needed to start. Without it, same clean "Gemini is not configured" failure as Claude. |
-| `GEMINI_MODEL_STRATEGY` / `GEMINI_MODEL_CONTENT` / `GEMINI_MODEL_FAST` | No | `gemini-2.5-flash` | Same per-task split as the Claude models, but only read when `AI_PROVIDER=gemini`. All default to the free-eligible Flash model — override any of them if you want a stronger (paid) Gemini model for a specific task. |
+| `GEMINI_MODEL_STRATEGY` / `GEMINI_MODEL_CONTENT` / `GEMINI_MODEL_FAST` | No | `gemini-3.6-flash` | Same per-task split as the Claude models, but only read when `AI_PROVIDER=gemini`. All default to the free-eligible Flash model — override any of them if you want a stronger (paid) Gemini model for a specific task. |
 | `AI_QUALITY_THRESHOLD` | No | `85` | 0-100. AI review routes content to `PENDING_APPROVAL` at/above this score, `NEEDS_EDIT` below. Human approval is always still required to publish regardless of this value. |
 
 ## Image generation

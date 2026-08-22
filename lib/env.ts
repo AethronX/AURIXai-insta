@@ -25,9 +25,9 @@ const envSchema = z.object({
   // Gemini Developer API key from Google AI Studio (aistudio.google.com/apikey) — has a free
   // tier for Flash models. Only used when AI_PROVIDER=gemini.
   GEMINI_API_KEY: z.string().optional().default(""),
-  GEMINI_MODEL_STRATEGY: z.string().default("gemini-2.5-flash"),
-  GEMINI_MODEL_CONTENT: z.string().default("gemini-2.5-flash"),
-  GEMINI_MODEL_FAST: z.string().default("gemini-2.5-flash"),
+  GEMINI_MODEL_STRATEGY: z.string().default("gemini-3.6-flash"),
+  GEMINI_MODEL_CONTENT: z.string().default("gemini-3.6-flash"),
+  GEMINI_MODEL_FAST: z.string().default("gemini-3.6-flash"),
 
   IMAGE_PROVIDER: z.enum(["mock", "external"]).default("mock"),
   IMAGE_PROVIDER_API_KEY: z.string().optional().default(""),
