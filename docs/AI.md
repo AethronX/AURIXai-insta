@@ -12,7 +12,7 @@ implementation:
 ## Configuration
 
 Set `AI_PROVIDER` to `claude` or `gemini` (default `claude`), then the matching key:
-`ANTHROPIC_API_KEY` or `GOOGLE_API_KEY`. See `docs/ENVIRONMENT.md` for per-task model selection
+`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`. See `docs/ENVIRONMENT.md` for per-task model selection
 (`AI_MODEL_*` / `GEMINI_MODEL_*`) and the quality gate threshold.
 
 **Without a key, every generator fails with a clear, typed error** (`AINotConfiguredError`,

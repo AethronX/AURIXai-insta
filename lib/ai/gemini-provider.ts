@@ -15,15 +15,15 @@ export class GeminiProvider implements AIProvider {
 
   private getClient(): GoogleGenAI {
     const env = getEnv();
-    if (!env.GOOGLE_API_KEY) throw new AINotConfiguredError("Gemini", "GOOGLE_API_KEY");
+    if (!env.GEMINI_API_KEY) throw new AINotConfiguredError("Gemini", "GEMINI_API_KEY");
     if (!this.client) {
-      this.client = new GoogleGenAI({ apiKey: env.GOOGLE_API_KEY });
+      this.client = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
     }
     return this.client;
   }
 
   isConfigured(): boolean {
-    return Boolean(getEnv().GOOGLE_API_KEY);
+    return Boolean(getEnv().GEMINI_API_KEY);
   }
 
   async generateText(params: GenerateTextParams): Promise<GenerateTextResult> {

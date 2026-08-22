@@ -48,7 +48,7 @@ export default async function IntegrationsPage() {
           )}
           {!isAIProviderConfigured() && (
             <p className="mt-2 text-warning">
-              Add {env.AI_PROVIDER === "gemini" ? "GOOGLE_API_KEY" : "ANTHROPIC_API_KEY"} to your environment to
+              Add {env.AI_PROVIDER === "gemini" ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY"} to your environment to
               enable generation.
             </p>
           )}

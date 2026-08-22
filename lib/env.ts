@@ -13,7 +13,7 @@ const envSchema = z.object({
   CREDENTIALS_ENCRYPTION_KEY: z.string().min(1),
 
   // Which reasoning provider lib/ai/provider-registry.ts hands back — "claude" needs
-  // ANTHROPIC_API_KEY, "gemini" needs GOOGLE_API_KEY. Business logic never picks a provider
+  // ANTHROPIC_API_KEY, "gemini" needs GEMINI_API_KEY. Business logic never picks a provider
   // directly; only this setting does (see docs/AI.md).
   AI_PROVIDER: z.enum(["claude", "gemini"]).default("claude"),
 
@@ -24,7 +24,7 @@ const envSchema = z.object({
 
   // Gemini Developer API key from Google AI Studio (aistudio.google.com/apikey) — has a free
   // tier for Flash models. Only used when AI_PROVIDER=gemini.
-  GOOGLE_API_KEY: z.string().optional().default(""),
+  GEMINI_API_KEY: z.string().optional().default(""),
   GEMINI_MODEL_STRATEGY: z.string().default("gemini-2.5-flash"),
   GEMINI_MODEL_CONTENT: z.string().default("gemini-2.5-flash"),
   GEMINI_MODEL_FAST: z.string().default("gemini-2.5-flash"),
@@ -83,7 +83,7 @@ export const isImageProviderConfigured = (): boolean => {
 
 export const isClaudeConfigured = (): boolean => Boolean(getEnv().ANTHROPIC_API_KEY);
 
-export const isGeminiConfigured = (): boolean => Boolean(getEnv().GOOGLE_API_KEY);
+export const isGeminiConfigured = (): boolean => Boolean(getEnv().GEMINI_API_KEY);
 
 /** Whether the currently-selected AI_PROVIDER has its credential set. */
 export const isAIProviderConfigured = (): boolean => {
