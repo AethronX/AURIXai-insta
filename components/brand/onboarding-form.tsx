@@ -22,6 +22,18 @@ export function OnboardingForm({ action }: { action: Action }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [step, setStep] = useState(0);
 
+  // A validation error can belong to an earlier step than the one showing (submit only happens on
+  // the last step) — jump back to it so the error and the offending field are actually visible.
+  // Adjusted during render (React's recommended pattern for this) rather than in an effect, so it
+  // takes effect in the same render instead of a follow-up one.
+  const [handledState, setHandledState] = useState(state);
+  if (state !== handledState) {
+    setHandledState(state);
+    if (state.error && typeof state.step === "number") {
+      setStep(state.step);
+    }
+  }
+
   const isLast = step === STEPS.length - 1;
 
   return (

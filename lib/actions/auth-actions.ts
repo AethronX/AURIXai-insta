@@ -15,6 +15,8 @@ const registerSchema = z.object({
 export interface FormState {
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** Which step of a multi-step form the error belongs to, for forms that need to jump back to it. */
+  step?: number;
 }
 
 function slugify(name: string): string {

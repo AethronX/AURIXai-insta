@@ -94,10 +94,20 @@ export async function completeOnboardingAction(_prev: FormState, formData: FormD
   });
 
   const results = { business, audience, voice, visualIdentity, contentRules };
-  for (const [name, result] of Object.entries(results)) {
+  const stepIndex: Record<keyof typeof results, number> = {
+    business: 0,
+    audience: 1,
+    voice: 2,
+    visualIdentity: 3,
+    contentRules: 4,
+  };
+  for (const [name, result] of Object.entries(results) as Array<[keyof typeof results, (typeof results)[keyof typeof results]]>) {
     if (!result.success) {
+      const issue = result.error.issues[0];
+      const field = issue?.path.join(".");
       return {
-        error: `Please fix the ${name} section: ${result.error.issues[0]?.message ?? "invalid input"}`,
+        error: `Please fix the ${name} section${field ? ` (${field})` : ""}: ${issue?.message ?? "invalid input"}`,
+        step: stepIndex[name],
       };
     }
   }
