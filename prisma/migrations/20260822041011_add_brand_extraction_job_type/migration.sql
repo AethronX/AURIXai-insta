@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AIJobType" ADD VALUE 'BRAND_EXTRACTION';

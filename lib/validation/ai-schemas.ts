@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { voiceToneSchema, dialectSchema } from "@/lib/validation/brand";
 
 /**
  * Every AI structured output is validated against one of these schemas before it ever reaches
@@ -118,3 +119,60 @@ export const analyticsInsightOutputSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 export type AnalyticsInsightOutput = z.infer<typeof analyticsInsightOutputSchema>;
+
+const hexColor = z
+  .string()
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  .or(z.literal(""))
+  .default("");
+
+/**
+ * A one-paragraph business description in, a full onboarding-form prefill out. The user still
+ * reviews and can edit every field on the normal step form before anything is saved — this only
+ * saves them retyping, it never bypasses the same validation/creation path as manual entry.
+ */
+export const brandExtractionOutputSchema = z.object({
+  name: z.string().min(1),
+  industry: z.string().default(""),
+  description: z.string().default(""),
+  website: z.string().default(""),
+  instagram: z.string().default(""),
+  location: z.string().default(""),
+  targetMarket: z.string().default(""),
+  products: z.array(z.string()).default([]),
+  services: z.array(z.string()).default([]),
+  audience: z.object({
+    targetCustomer: z.string().default(""),
+    ageRangeMin: z.number().int().min(0).max(120).nullable().default(null),
+    ageRangeMax: z.number().int().min(0).max(120).nullable().default(null),
+    interests: z.array(z.string()).default([]),
+    painPoints: z.array(z.string()).default([]),
+    desires: z.array(z.string()).default([]),
+    buyingBehavior: z.string().default(""),
+  }),
+  voice: z.object({
+    primaryTone: voiceToneSchema,
+    secondaryTones: z.array(voiceToneSchema).default([]),
+    customInstructions: z.string().default(""),
+  }),
+  visualIdentity: z.object({
+    primaryColor: hexColor,
+    secondaryColor: hexColor,
+    accentColor: hexColor,
+    fontPrimary: z.string().default(""),
+    fontSecondary: z.string().default(""),
+    imageStyle: z.string().default(""),
+    designReferences: z.array(z.string()).default([]),
+  }),
+  contentRules: z.object({
+    wordsToUse: z.array(z.string()).default([]),
+    wordsToAvoid: z.array(z.string()).default([]),
+    claimsToAvoid: z.array(z.string()).default([]),
+    topicsToAvoid: z.array(z.string()).default([]),
+    ctaStyle: z.string().default(""),
+    hashtagStrategy: z.string().default(""),
+    language: z.string().default("en"),
+    dialect: dialectSchema.default("NONE"),
+  }),
+});
+export type BrandExtractionOutput = z.infer<typeof brandExtractionOutputSchema>;

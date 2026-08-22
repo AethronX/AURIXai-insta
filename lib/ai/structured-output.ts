@@ -20,7 +20,9 @@ export interface GenerateValidatedJSONParams<T> {
   task: AITaskComplexity;
   system: string;
   prompt: string;
-  schema: z.ZodType<T>;
+  // Input left as `unknown` (not pinned to T) since schemas with `.default()` fields legitimately
+  // have a wider Input type than Output — safeParse always takes `unknown` at runtime regardless.
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>;
   promptVersion: string;
   brandId?: string;
   organizationId?: string;

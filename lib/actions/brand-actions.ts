@@ -22,10 +22,39 @@ import {
   type FullBrandInput,
 } from "@/lib/brand/service";
 import { recordAuditEvent } from "@/lib/observability/audit";
+import { extractBrandFromDescription } from "@/lib/ai/brand-extractor";
+import { AIGenerationError } from "@/lib/ai/structured-output";
+import type { BrandExtractionOutput } from "@/lib/validation/ai-schemas";
 import type { FormState } from "@/lib/actions/auth-actions";
 
 function readList(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "");
+}
+
+export interface ExtractBrandFormState {
+  error?: string;
+  data?: BrandExtractionOutput;
+}
+
+/** Turns one free-text description into a full prefill for the onboarding step form — the user
+ * still reviews and can edit every field before "Finish setup" actually saves anything. */
+export async function extractBrandFromPromptAction(
+  _prev: ExtractBrandFormState,
+  formData: FormData
+): Promise<ExtractBrandFormState> {
+  const user = await requireUser();
+  const description = String(formData.get("description") ?? "").trim();
+  if (description.length < 20) {
+    return { error: "Tell AURIX a bit more about the business — at least a couple of sentences." };
+  }
+
+  try {
+    const data = await extractBrandFromDescription({ description, organizationId: user.organizationId });
+    return { data };
+  } catch (err) {
+    if (err instanceof AIGenerationError) return { error: err.message };
+    return { error: err instanceof Error ? err.message : "Failed to generate a brand profile." };
+  }
 }
 
 async function maybeUploadLogo(formData: FormData): Promise<string | undefined> {

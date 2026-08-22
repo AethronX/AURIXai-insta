@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/security/auth";
 import { brandExists } from "@/lib/brand/service";
-import { completeOnboardingAction } from "@/lib/actions/brand-actions";
-import { OnboardingForm } from "@/components/brand/onboarding-form";
+import { OnboardingFlow } from "@/components/brand/onboarding-flow";
 
 export default async function OnboardingPage() {
   const user = await requireUser();
@@ -19,7 +18,7 @@ export default async function OnboardingPage() {
           what you enter here. You can always refine it later from Brand Brain in the sidebar.
         </p>
       </div>
-      <OnboardingForm action={completeOnboardingAction} />
+      <OnboardingFlow />
     </div>
   );
 }

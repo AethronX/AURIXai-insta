@@ -11,6 +11,7 @@ test.describe("registration and onboarding", () => {
     await page.fill("#password", "supersecret123");
     await page.click('button[type="submit"]');
     await page.waitForURL("**/onboarding");
+    await page.click("text=Guided questions");
 
     // Step 1: business
     await page.fill("#name", "E2E Coffee Co");
@@ -42,6 +43,32 @@ test.describe("registration and onboarding", () => {
     await page.waitForURL("**/login");
   });
 
+  test("onboarding offers a quick-AI-prompt path alongside the guided questions, and it fails cleanly without a Claude key", async ({ page }) => {
+    const email = `e2e_prompt_${Date.now()}@example.com`;
+    await page.goto("/register");
+    await page.fill("#organizationName", "E2E Prompt Co");
+    await page.fill("#name", "Test User");
+    await page.fill("#email", email);
+    await page.fill("#password", "supersecret123");
+    await page.click('button[type="submit"]');
+    await page.waitForURL("**/onboarding");
+
+    await expect(page.locator("text=Quick AI prompt")).toBeVisible();
+    await expect(page.locator("text=Guided questions")).toBeVisible();
+
+    await page.click("text=Quick AI prompt");
+    await page.fill(
+      "textarea[name='description']",
+      "AURIX is a website and e-commerce design studio serving businesses in Oman and the Gulf."
+    );
+    await page.click('button:has-text("Generate brand profile")');
+
+    // No configured Claude key in this environment — must fail with a clear error, never
+    // silently produce fake brand data or crash.
+    await page.waitForSelector("text=/not configured|failed|error/i", { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/onboarding/);
+  });
+
   test("attempting AI generation without a configured Claude key fails cleanly, not silently", async ({ page }) => {
     const email = `e2e_ai_${Date.now()}@example.com`;
     await page.goto("/register");
@@ -51,6 +78,7 @@ test.describe("registration and onboarding", () => {
     await page.fill("#password", "supersecret123");
     await page.click('button[type="submit"]');
     await page.waitForURL("**/onboarding");
+    await page.click("text=Guided questions");
     await page.fill("#name", "E2E AI Co");
     for (let i = 0; i < 4; i++) await page.click('button:has-text("Continue")');
     await page.click('button:has-text("Finish setup")');

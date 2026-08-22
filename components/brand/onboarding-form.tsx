@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { BusinessFields, AudienceFields, VoiceFields, VisualIdentityFields, ContentRulesFields } from "@/components/brand/fields";
 import { cn } from "@/lib/utils";
 import type { FormState } from "@/lib/actions/auth-actions";
+import type { BrandExtractionOutput } from "@/lib/validation/ai-schemas";
 
 const STEPS = [
   { key: "business", title: "The business", description: "The essentials — what this brand is and does." },
@@ -18,7 +19,7 @@ const STEPS = [
 
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
 
-export function OnboardingForm({ action }: { action: Action }) {
+export function OnboardingForm({ action, defaults }: { action: Action; defaults?: BrandExtractionOutput }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [step, setStep] = useState(0);
 
@@ -73,11 +74,11 @@ export function OnboardingForm({ action }: { action: Action }) {
                 <CardDescription>{s.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                {s.key === "business" && <BusinessFields />}
-                {s.key === "audience" && <AudienceFields />}
-                {s.key === "voice" && <VoiceFields />}
-                {s.key === "visual" && <VisualIdentityFields />}
-                {s.key === "rules" && <ContentRulesFields />}
+                {s.key === "business" && <BusinessFields defaults={defaults} />}
+                {s.key === "audience" && <AudienceFields defaults={defaults?.audience} />}
+                {s.key === "voice" && <VoiceFields defaults={defaults?.voice} />}
+                {s.key === "visual" && <VisualIdentityFields defaults={defaults?.visualIdentity} />}
+                {s.key === "rules" && <ContentRulesFields defaults={defaults?.contentRules} />}
               </CardContent>
             </Card>
           </div>
