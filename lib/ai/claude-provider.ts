@@ -4,6 +4,7 @@ import { logger } from "@/lib/observability/logger";
 import {
   AINotConfiguredError,
   AIProviderError,
+  classifyHttpStatus,
   type AIProvider,
   type GenerateTextParams,
   type GenerateTextResult,
@@ -57,13 +58,15 @@ export class ClaudeProvider implements AIProvider {
     } catch (err) {
       logger.error({ err, model: params.model }, "Claude API call failed");
       if (err instanceof Anthropic.APIError) {
-        const retryable = err.status === 429 || err.status === 529 || (err.status ?? 0) >= 500;
-        throw new AIProviderError(`Claude API error (${err.status}): ${err.message}`, {
+        const status = err.status ?? 0;
+        const retryable = status === 429 || status === 529 || status >= 500;
+        throw new AIProviderError(`Claude API error (${status}): ${err.message}`, {
           cause: err,
           retryable,
+          code: classifyHttpStatus(status),
         });
       }
-      throw new AIProviderError("Claude API call failed", { cause: err, retryable: true });
+      throw new AIProviderError("Claude API call failed", { cause: err, retryable: true, code: "NETWORK_ERROR" });
     }
   }
 }

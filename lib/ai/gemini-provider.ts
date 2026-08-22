@@ -4,6 +4,7 @@ import { logger } from "@/lib/observability/logger";
 import {
   AINotConfiguredError,
   AIProviderError,
+  classifyHttpStatus,
   type AIProvider,
   type GenerateTextParams,
   type GenerateTextResult,
@@ -58,9 +59,10 @@ export class GeminiProvider implements AIProvider {
         throw new AIProviderError(`Gemini API error (${err.status}): ${err.message}`, {
           cause: err,
           retryable,
+          code: classifyHttpStatus(err.status),
         });
       }
-      throw new AIProviderError("Gemini API call failed", { cause: err, retryable: true });
+      throw new AIProviderError("Gemini API call failed", { cause: err, retryable: true, code: "NETWORK_ERROR" });
     }
   }
 }

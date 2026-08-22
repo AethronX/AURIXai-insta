@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { z } from "zod";
+import { AIProviderError } from "@/lib/ai/provider";
 
 const aiJobStore: Record<string, unknown> = {};
 
@@ -127,5 +128,82 @@ describe("generateValidatedJSON", () => {
         promptVersion: "test.v1",
       })
     ).rejects.toThrow();
+  });
+
+  it("stops after one attempt and surfaces PROVIDER_NOT_CONFIGURED without retrying when the provider isn't configured", async () => {
+    generateText.mockRejectedValueOnce(
+      new AIProviderError("Gemini is not configured. Add GEMINI_API_KEY in Settings > Integrations to enable AI generation.", {
+        retryable: false,
+        code: "PROVIDER_NOT_CONFIGURED",
+      })
+    );
+
+    await expect(
+      generateValidatedJSON({
+        jobType: "CONTENT_GENERATION",
+        task: "fast",
+        system: "sys",
+        prompt: "prompt",
+        schema,
+        promptVersion: "test.v1",
+      })
+    ).rejects.toMatchObject({ code: "PROVIDER_NOT_CONFIGURED" });
+
+    // Non-retryable provider errors (like "not configured") must not burn a second attempt —
+    // and critically, must never fall through to a different provider.
+    expect(generateText).toHaveBeenCalledTimes(1);
+    const jobs = Object.values(aiJobStore) as Array<{ status: string; errorMessage?: string }>;
+    expect(jobs.some((j) => j.status === "FAILED" && j.errorMessage?.startsWith("[PROVIDER_NOT_CONFIGURED]"))).toBe(
+      true
+    );
+  });
+
+  it("classifies a Gemini-style 404 model error as MODEL_NOT_FOUND on the thrown error and the failed job", async () => {
+    generateText.mockRejectedValueOnce(
+      new AIProviderError(
+        'Gemini API error (404): {"error":{"code":404,"message":"model no longer available"}}',
+        { retryable: false, code: "MODEL_NOT_FOUND" }
+      )
+    );
+
+    await expect(
+      generateValidatedJSON({
+        jobType: "CONTENT_GENERATION",
+        task: "fast",
+        system: "sys",
+        prompt: "prompt",
+        schema,
+        promptVersion: "test.v1",
+      })
+    ).rejects.toMatchObject({ code: "MODEL_NOT_FOUND" });
+
+    const jobs = Object.values(aiJobStore) as Array<{ errorMessage?: string }>;
+    expect(jobs.some((j) => j.errorMessage?.startsWith("[MODEL_NOT_FOUND]"))).toBe(true);
+  });
+
+  it("never logs or persists the raw error text containing something that looks like an API key", async () => {
+    // Provider errors should never embed credentials in their message; this guards the
+    // errorMessage persisted on AIJob (the one place a leaking provider bug would surface).
+    generateText.mockRejectedValueOnce(
+      new AIProviderError("Claude API error (401): invalid x-api-key header", {
+        retryable: false,
+        code: "INVALID_API_KEY",
+      })
+    );
+
+    await expect(
+      generateValidatedJSON({
+        jobType: "CONTENT_GENERATION",
+        task: "fast",
+        system: "sys",
+        prompt: "prompt",
+        schema,
+        promptVersion: "test.v1",
+      })
+    ).rejects.toMatchObject({ code: "INVALID_API_KEY" });
+
+    const jobs = Object.values(aiJobStore) as Array<{ errorMessage?: string }>;
+    const failed = jobs.find((j) => j.errorMessage?.startsWith("[INVALID_API_KEY]"));
+    expect(failed?.errorMessage).not.toMatch(/sk-ant-|AIza[0-9A-Za-z_-]{20,}/);
   });
 });

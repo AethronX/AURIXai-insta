@@ -24,14 +24,32 @@ export interface GenerateTextResult {
   stopReason: string | null;
 }
 
+/**
+ * Coarse, provider-agnostic classification so a caller (or a human reading logs) can tell what
+ * actually went wrong without parsing prose. Never invented per-provider — both ClaudeProvider
+ * and GeminiProvider map their SDK's HTTP status onto the same set via classifyHttpStatus below.
+ */
+export type AIErrorCode =
+  | "PROVIDER_NOT_CONFIGURED"
+  | "MODEL_NOT_FOUND"
+  | "INVALID_API_KEY"
+  | "PERMISSION_DENIED"
+  | "RATE_LIMITED"
+  | "NETWORK_ERROR"
+  | "INVALID_REQUEST"
+  | "SCHEMA_VALIDATION_FAILED"
+  | "UNKNOWN";
+
 export class AIProviderError extends Error {
   cause?: unknown;
   retryable: boolean;
-  constructor(message: string, opts?: { cause?: unknown; retryable?: boolean }) {
+  code: AIErrorCode;
+  constructor(message: string, opts?: { cause?: unknown; retryable?: boolean; code?: AIErrorCode }) {
     super(message);
     this.name = "AIProviderError";
     this.cause = opts?.cause;
     this.retryable = opts?.retryable ?? false;
+    this.code = opts?.code ?? "UNKNOWN";
   }
 }
 
@@ -39,10 +57,21 @@ export class AINotConfiguredError extends AIProviderError {
   constructor(providerLabel: string, envVar: string) {
     super(
       `${providerLabel} is not configured. Add ${envVar} in Settings > Integrations to enable AI generation.`,
-      { retryable: false }
+      { retryable: false, code: "PROVIDER_NOT_CONFIGURED" }
     );
     this.name = "AINotConfiguredError";
   }
+}
+
+/** Maps an HTTP status from either provider's SDK onto the shared AIErrorCode set. */
+export function classifyHttpStatus(status: number): AIErrorCode {
+  if (status === 401) return "INVALID_API_KEY";
+  if (status === 403) return "PERMISSION_DENIED";
+  if (status === 404) return "MODEL_NOT_FOUND";
+  if (status === 429) return "RATE_LIMITED";
+  if (status === 400) return "INVALID_REQUEST";
+  if (status >= 500) return "NETWORK_ERROR";
+  return "UNKNOWN";
 }
 
 export interface AIProvider {

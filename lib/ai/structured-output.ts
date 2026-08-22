@@ -5,11 +5,11 @@ import { prisma } from "@/lib/db";
 import { getAIProvider } from "@/lib/ai/provider-registry";
 import { modelForTask, type AITaskComplexity } from "@/lib/ai/models";
 import { extractJson } from "@/lib/ai/json-extract";
-import { AIProviderError } from "@/lib/ai/provider";
+import { AIProviderError, type AIErrorCode } from "@/lib/ai/provider";
 import { logger } from "@/lib/observability/logger";
 
 export class AIGenerationError extends Error {
-  constructor(message: string, public aiJobId?: string) {
+  constructor(message: string, public aiJobId?: string, public code: AIErrorCode = "UNKNOWN") {
     super(message);
     this.name = "AIGenerationError";
   }
@@ -64,9 +64,15 @@ export async function generateValidatedJSON<T>(
   });
 
   let lastError: string = "";
+  let lastErrorCode: AIErrorCode = "UNKNOWN";
   let lastRawText = "";
 
   for (let attempt = 1; attempt <= 2; attempt++) {
+    // [AI] diagnostic line: provider/model/job/attempt only — never system prompt, user prompt, or API keys.
+    logger.info(
+      { jobId: job.id, provider: provider.name, model, attempt, jobType: params.jobType },
+      "[AI] request started"
+    );
     try {
       const effectivePrompt =
         attempt === 1
@@ -86,6 +92,10 @@ export async function generateValidatedJSON<T>(
       const validated = params.schema.safeParse(parsed);
 
       if (validated.success) {
+        logger.info(
+          { jobId: job.id, provider: provider.name, model, attempt },
+          "[AI] request succeeded"
+        );
         await prisma.aIJob.update({
           where: { id: job.id },
           data: {
@@ -98,11 +108,19 @@ export async function generateValidatedJSON<T>(
         return { data: validated.data, aiJobId: job.id, model, attempts: attempt };
       }
 
+      lastErrorCode = "SCHEMA_VALIDATION_FAILED";
       lastError = validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-      logger.warn({ jobId: job.id, attempt, lastError }, "AI structured output failed validation");
+      logger.warn(
+        { jobId: job.id, provider: provider.name, model, attempt, code: lastErrorCode, lastError },
+        "[AI] request failed: schema validation"
+      );
     } catch (err) {
+      lastErrorCode = err instanceof AIProviderError ? err.code : "UNKNOWN";
       lastError = err instanceof Error ? err.message : String(err);
-      logger.error({ jobId: job.id, attempt, err }, "AI generation attempt failed");
+      logger.error(
+        { jobId: job.id, provider: provider.name, model, attempt, code: lastErrorCode, err },
+        "[AI] request failed: provider error"
+      );
       if (err instanceof AIProviderError && !err.retryable) break;
     }
   }
@@ -112,9 +130,9 @@ export async function generateValidatedJSON<T>(
     data: {
       status: "FAILED",
       completedAt: new Date(),
-      errorMessage: lastError.slice(0, 2000),
+      errorMessage: `[${lastErrorCode}] ${lastError}`.slice(0, 2000),
     },
   });
 
-  throw new AIGenerationError(`AI generation failed after retries: ${lastError}`, job.id);
+  throw new AIGenerationError(`AI generation failed after retries: ${lastError}`, job.id, lastErrorCode);
 }

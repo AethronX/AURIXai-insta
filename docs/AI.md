@@ -55,6 +55,27 @@ loop means a malformed first response is usually still recoverable. See
 `tests/unit/structured-output.test.ts` for the exact behavior under a fake provider (no live API
 key needed to verify this logic).
 
+### Error classification
+
+Both providers map their SDK's HTTP status onto the same `AIErrorCode` (`lib/ai/provider.ts`, via
+`classifyHttpStatus()`) instead of leaving callers to grep prose: `PROVIDER_NOT_CONFIGURED`,
+`MODEL_NOT_FOUND` (e.g. Google's "this model is no longer available" 404),
+`INVALID_API_KEY` (401), `PERMISSION_DENIED` (403), `RATE_LIMITED` (429), `INVALID_REQUEST` (400),
+`NETWORK_ERROR` (5xx or a non-`ApiError` network failure), `SCHEMA_VALIDATION_FAILED` (Zod
+rejected the model's output), `UNKNOWN` (anything not classified above). `generateValidatedJSON`
+carries the code through the retry loop, prefixes it onto the persisted `AIJob.errorMessage` as
+`[CODE] message`, and attaches it to the thrown `AIGenerationError.code` — never the raw
+credential or full prompt, only provider name / model / job id / attempt / code. See
+`tests/unit/ai-error-classification.test.ts` and the error-code cases in
+`tests/unit/structured-output.test.ts`.
+
+### No silent fallback
+
+`lib/ai/provider-registry.ts` resolves exactly one provider from `AI_PROVIDER` and caches it —
+there is no code path anywhere that catches a Gemini failure and retries with Claude (or vice
+versa). A misconfigured or failing provider surfaces its own typed error; it never silently
+degrades to the other vendor. See `tests/unit/provider-registry.test.ts`.
+
 ## Prompt library
 
 `prompts/` — one directory per task, one file per version:
